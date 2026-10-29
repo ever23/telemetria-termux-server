@@ -1,0 +1,26 @@
+{
+  "name": "telemetria-termux-server",
+  "version": "1.0.0",
+  "description": "Micro-panel web de telemetría ultra-liviano para servidores Android/Termux (Express + Vue 3 + ADB)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --max-old-space-size=48 server.js",
+    "dev": "node server.js",
+    "build:ui": "npm --prefix frontend run build"
+  },
+  "keywords": [
+    "termux",
+    "telemetry",
+    "android-server",
+    "dashboard",
+    "pm2",
+    "adb",
+    "vue3",
+    "express"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}
