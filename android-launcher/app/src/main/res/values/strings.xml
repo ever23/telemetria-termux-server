@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Termux Telemetry Launcher</string>
+    <string name="btn_apps">📱 Aplicaciones</string>
+    <string name="title_apps">Aplicaciones</string>
+    <string name="search_hint">Buscar aplicación...</string>
+    <string name="server_offline_title">Servidor Local Desconectado</string>
+    <string name="server_offline_subtitle">Verifica que Termux y PM2 estén corriendo en 127.0.0.1:3055</string>
+    <string name="btn_retry">Reintentar Conexión</string>
+    <string name="btn_open_termux">Abrir Termux</string>
+</resources>

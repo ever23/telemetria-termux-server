@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_dark">#060a08</color>
+    <color name="bg_surface">#09120e</color>
+    <color name="neon_green">#00e676</color>
+    <color name="neon_green_subtle">#13241b</color>
+    <color name="neon_green_ripple">#3300e676</color>
+    <color name="text_white">#f0fdf4</color>
+    <color name="text_muted">#86efac</color>
+    <color name="border_dark">#162e22</color>
+    <color name="overlay_scrim">#cc040806</color>
+</resources>

@@ -45,6 +45,10 @@ body {
   background: var(--bg-shell);
 }
 
+.dashboard-shell.launcher-mode {
+  padding-bottom: 76px;
+}
+
 /* ==========================================================================
    Sidebar Izquierdo (Escritorio)
    ========================================================================== */

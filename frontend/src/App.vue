@@ -1,7 +1,7 @@
 <template>
   <LoginView v-if="authState === 'login'" @success="onLoginSuccess" />
 
-  <div v-else-if="authState === 'ready'" class="dashboard-shell">
+  <div v-else-if="authState === 'ready'" class="dashboard-shell" :class="{ 'launcher-mode': isLauncher }">
     <!-- Navegación Lateral (PC) e Inferior (Móvil) -->
     <SidebarNav
       :active-tab="activeTab"
@@ -248,6 +248,7 @@ const searchQuery = ref('');
 const refreshMs = ref(3000);
 const loadingScreen = ref(false);
 const toastMessage = ref('');
+const isLauncher = ref(typeof window !== 'undefined' && window.location.search.includes('launcher=1'));
 let pollTimer = null;
 
 const telemetry = reactive({
