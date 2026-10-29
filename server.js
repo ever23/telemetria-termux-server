@@ -192,6 +192,14 @@ app.get('/api/system/network', auth.requireAuthIfConfigured, async (_req, res) =
   }
 });
 
+app.post('/api/system/tunnel', auth.requireAuthStrict, (req, res) => {
+  const url = (req.body && req.body.url ? String(req.body.url) : '').trim().replace(/^https?:\/\//, '');
+  const { upsertEnv } = require('./lib/envfile');
+  upsertEnv('TUNNEL_URL', url);
+  config.tunnelUrl = url;
+  res.json({ ok: true, tunnelUrl: url, message: 'URL del túnel guardada en .env' });
+});
+
 // ---------------------------------------------------------------------------
 // Visor y Rotación de Logs
 // ---------------------------------------------------------------------------

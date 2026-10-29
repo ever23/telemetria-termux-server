@@ -147,7 +147,7 @@
               />
             </div>
 
-            <NetworkCard :network="telemetry.network" />
+            <NetworkCard :network="telemetry.network" @save-tunnel="handleSaveTunnel" />
             <StorageCard :mounts="telemetry.storage" />
             <Pm2Table :processes="filteredPm2" @restart="handlePm2Restart" />
           </template>
@@ -173,7 +173,7 @@
           <!-- Vista 5: Disco y Red -->
           <template v-else-if="activeTab === 'storage'">
             <StorageCard :mounts="telemetry.storage" />
-            <NetworkCard :network="telemetry.network" />
+            <NetworkCard :network="telemetry.network" @save-tunnel="handleSaveTunnel" />
           </template>
 
           <!-- Vista 6: Pantalla ADB / Hardware -->
@@ -402,6 +402,23 @@ async function handleUpdateServer() {
     showToast(data.message || 'Actualización iniciada...');
   } catch (_) {
     showToast('Error al solicitar actualización');
+  }
+}
+
+async function handleSaveTunnel(newUrl, done) {
+  try {
+    const res = await fetch('/api/system/tunnel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: newUrl })
+    });
+    const data = await res.json();
+    showToast(data.message || 'Túnel guardado');
+    if (done) done();
+    await fetchTelemetry();
+  } catch (_) {
+    showToast('Error al guardar túnel');
+    if (done) done();
   }
 }
 
