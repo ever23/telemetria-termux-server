@@ -1,226 +1,204 @@
 <template>
-  <div class="launcher-container">
-    <!-- Header Superior Estilo Rack Server -->
-    <header class="launcher-header">
-      <div class="header-brand">
-        <div class="brand-avatar">M</div>
-        <div class="brand-info">
-          <div class="brand-title-row">
-            <h1 class="brand-name">{{ telemetry.server.deviceName || 'Moto E20' }}</h1>
-            <span class="server-tag">24/7 SERVER</span>
+  <div class="launcher-shell">
+    <!-- Pistas Deslizables Horizontales (Swipe Lateral tipo Launcher) -->
+    <div
+      ref="pagesTrack"
+      class="pages-track"
+      @scroll.passive="handleTrackScroll"
+    >
+      <!-- ================= PÁGINA 1: MONITOR PRINCIPAL ================= -->
+      <section class="launcher-page page-kiosk">
+        <!-- Header Superior -->
+        <header class="page-header">
+          <div class="header-left">
+            <div class="brand-avatar">M</div>
+            <div class="brand-meta">
+              <div class="brand-title">
+                <strong>{{ telemetry.server.deviceName || 'Moto E20' }}</strong>
+                <span class="tag-live">24/7 SERVER</span>
+              </div>
+              <div class="brand-sub">
+                <span class="pulse-dot"></span>
+                <span>Uptime {{ telemetry.uptime.systemFormatted || 'En línea' }}</span>
+                <span class="sep">•</span>
+                <span>{{ telemetry.server.ip || '127.0.0.1' }}</span>
+              </div>
+            </div>
           </div>
-          <div class="brand-sub">
-            <span class="live-dot"></span>
-            <span>Uptime {{ telemetry.uptime.systemFormatted || 'En línea' }}</span>
-            <span class="sub-sep">•</span>
-            <span>{{ telemetry.server.ip || '127.0.0.1' }}</span>
+
+          <div class="header-right">
+            <span class="live-tag">EN VIVO (1s)</span>
           </div>
-        </div>
-      </div>
+        </header>
 
-      <div class="header-actions">
-        <button class="btn-icon" title="Refrescar métricas" @click="$emit('refresh')">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-          </svg>
-        </button>
-      </div>
-    </header>
-
-    <!-- Barra de Pestañas Rápidas (Scroll Horizontal) -->
-    <nav class="sub-nav-bar">
-      <button
-        class="nav-pill"
-        :class="{ active: currentSubView === 'dashboard' }"
-        @click="currentSubView = 'dashboard'"
-      >
-        ⚡ Monitor
-      </button>
-      <button
-        class="nav-pill"
-        :class="{ active: currentSubView === 'pm2' }"
-        @click="currentSubView = 'pm2'"
-      >
-        ⚙️ PM2 ({{ telemetry.pm2.length }})
-      </button>
-      <button
-        class="nav-pill"
-        :class="{ active: currentSubView === 'android' }"
-        @click="currentSubView = 'android'"
-      >
-        🤖 Android
-      </button>
-      <button
-        class="nav-pill"
-        :class="{ active: currentSubView === 'logs' }"
-        @click="currentSubView = 'logs'"
-      >
-        📋 Logs
-      </button>
-      <button
-        class="nav-pill"
-        :class="{ active: currentSubView === 'screen' }"
-        @click="currentSubView = 'screen'"
-      >
-        📱 Pantalla
-      </button>
-    </nav>
-
-    <!-- VISTA PRINCIPAL: Monitor (Grid 2x2 + Mini Gráfica + Mini PM2) -->
-    <main v-if="currentSubView === 'dashboard'" class="launcher-content">
-      <!-- Grid 2x2 Compacto -->
-      <section class="kpi-grid-compact">
-        <!-- CPU Card -->
-        <div class="card-kpi">
-          <div class="kpi-head">
-            <span class="kpi-title">Uso CPU</span>
-            <span class="kpi-tag green">{{ telemetry.cpu.cores.length }}C</span>
+        <!-- Grid 2x2 Ultra-Comprimido -->
+        <div class="grid-2x2">
+          <!-- CPU -->
+          <div class="tile-kpi">
+            <div class="tile-top">
+              <span class="tile-label">Uso CPU</span>
+              <span class="tile-badge green">{{ telemetry.cpu.cores.length }}C</span>
+            </div>
+            <div class="tile-val">{{ telemetry.cpu.usage }}%</div>
+            <div class="tile-bottom">
+              <span class="muted">Load: {{ (telemetry.cpu.loadAvg[0] || 0).toFixed(2) }}</span>
+              <div class="bar-track">
+                <div class="bar-fill" :style="{ width: `${Math.min(100, telemetry.cpu.usage)}%` }"></div>
+              </div>
+            </div>
           </div>
-          <div class="kpi-num">{{ telemetry.cpu.usage }}%</div>
-          <div class="kpi-foot">
-            <span class="muted">Load: {{ (telemetry.cpu.loadAvg[0] || 0).toFixed(2) }}</span>
-            <div class="mini-bar-track">
-              <div class="mini-bar-fill" :style="{ width: `${Math.min(100, telemetry.cpu.usage)}%` }"></div>
+
+          <!-- RAM -->
+          <div class="tile-kpi">
+            <div class="tile-top">
+              <span class="tile-label">RAM Libre</span>
+              <span class="tile-badge" :class="telemetry.ram.freePercent < 15 ? 'red' : 'green'">
+                {{ telemetry.ram.freePercent }}%
+              </span>
+            </div>
+            <div class="tile-val">{{ telemetry.ram.usedGb }} GB</div>
+            <div class="tile-bottom">
+              <span class="muted">Total {{ telemetry.ram.totalGb }} GB</span>
+              <div class="bar-track">
+                <div class="bar-fill" :style="{ width: `${telemetry.ram.percent}%` }"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Batería -->
+          <div class="tile-kpi">
+            <div class="tile-top">
+              <span class="tile-label">Batería &amp; Temp</span>
+              <span class="tile-badge" :class="telemetry.battery.temperature >= 40 ? 'red' : 'green'">
+                {{ telemetry.battery.temperature }}°C
+              </span>
+            </div>
+            <div class="tile-val">{{ telemetry.battery.level }}%</div>
+            <div class="tile-bottom">
+              <span class="muted">{{ telemetry.battery.status || 'Alimentado' }}</span>
+            </div>
+          </div>
+
+          <!-- Red & Túnel -->
+          <div class="tile-kpi">
+            <div class="tile-top">
+              <span class="tile-label">Red wlan0</span>
+              <span class="tile-badge" :class="telemetry.network.tunnel?.online ? 'green' : 'red'">
+                {{ telemetry.network.tunnel?.online ? 'Túnel OK' : 'Offline' }}
+              </span>
+            </div>
+            <div class="tile-rates">
+              <span class="rate-down">↓ {{ telemetry.network.traffic?.rxRateFormatted || '0 KB/s' }}</span>
+              <span class="rate-up">↑ {{ telemetry.network.traffic?.txRateFormatted || '0 KB/s' }}</span>
+            </div>
+            <div class="tile-bottom">
+              <span class="muted">Ping: {{ telemetry.network.tunnel?.latencyMs || 0 }}ms</span>
             </div>
           </div>
         </div>
 
-        <!-- RAM Card -->
-        <div class="card-kpi">
-          <div class="kpi-head">
-            <span class="kpi-title">RAM Libre</span>
-            <span class="kpi-tag" :class="telemetry.ram.freePercent < 15 ? 'red' : 'green'">
-              {{ telemetry.ram.freePercent }}%
-            </span>
+        <!-- Minigráfica en Tiempo Real (80px) -->
+        <div class="chart-tile">
+          <div class="chart-header">
+            <span class="chart-label">Carga en tiempo real</span>
+            <div class="chart-switch">
+              <button :class="{ active: chartMetric === 'cpu' }" @click="chartMetric = 'cpu'">CPU</button>
+              <button :class="{ active: chartMetric === 'ram' }" @click="chartMetric = 'ram'">RAM</button>
+            </div>
           </div>
-          <div class="kpi-num">{{ telemetry.ram.usedGb }} GB</div>
-          <div class="kpi-foot">
-            <span class="muted">Total {{ telemetry.ram.totalGb }} GB</span>
-            <div class="mini-bar-track">
-              <div class="mini-bar-fill" :style="{ width: `${telemetry.ram.percent}%` }"></div>
+          <div class="chart-svg-wrap">
+            <svg viewBox="0 0 320 80" preserveAspectRatio="none" class="chart-svg">
+              <defs>
+                <linearGradient id="liveAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#00E676" stop-opacity="0.38" />
+                  <stop offset="100%" stop-color="#00E676" stop-opacity="0.0" />
+                </linearGradient>
+              </defs>
+              <path v-if="chartAreaPath" :d="chartAreaPath" fill="url(#liveAreaGrad)" />
+              <path v-if="chartLinePath" :d="chartLinePath" fill="none" stroke="#00E676" stroke-width="2" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- Mini Lista PM2 -->
+        <div class="pm2-tile">
+          <div class="pm2-header">
+            <span class="pm2-title">Servicios Activos (PM2)</span>
+            <span class="pm2-badge">{{ telemetry.pm2.filter(p => p.status === 'online').length }} online</span>
+          </div>
+          <div class="pm2-items">
+            <div v-for="proc in telemetry.pm2" :key="proc.id" class="pm2-row">
+              <div class="proc-info">
+                <span class="dot" :class="proc.status"></span>
+                <strong class="name">{{ proc.name }}</strong>
+                <small class="role" v-if="proc.role">{{ proc.role }}</small>
+              </div>
+              <div class="proc-actions">
+                <span class="stats">{{ proc.memoryMb }} MB • {{ proc.cpu }}%</span>
+                <button
+                  class="btn-restart"
+                  title="Reiniciar servicio"
+                  @click="$emit('restart-pm2', proc.name)"
+                >
+                  ↻
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Batería & Temp Card -->
-        <div class="card-kpi">
-          <div class="kpi-head">
-            <span class="kpi-title">Batería &amp; Temp</span>
-            <span class="kpi-tag" :class="telemetry.battery.temperature >= 40 ? 'red' : 'green'">
-              {{ telemetry.battery.temperature }}°C
-            </span>
-          </div>
-          <div class="kpi-num">{{ telemetry.battery.level }}%</div>
-          <div class="kpi-foot">
-            <span class="muted">{{ telemetry.battery.status || 'Alimentado' }}</span>
-          </div>
-        </div>
-
-        <!-- Red & Túnel Card -->
-        <div class="card-kpi">
-          <div class="kpi-head">
-            <span class="kpi-title">Red wlan0</span>
-            <span class="kpi-tag" :class="telemetry.network.tunnel?.online ? 'green' : 'red'">
-              {{ telemetry.network.tunnel?.online ? 'Túnel OK' : 'Offline' }}
-            </span>
-          </div>
-          <div class="kpi-rate-row">
-            <span class="rate-down">↓ {{ telemetry.network.traffic?.rxRateFormatted || '0 KB/s' }}</span>
-            <span class="rate-up">↑ {{ telemetry.network.traffic?.txRateFormatted || '0 KB/s' }}</span>
-          </div>
-          <div class="kpi-foot">
-            <span class="muted">Ping: {{ telemetry.network.tunnel?.latencyMs || 0 }}ms</span>
-          </div>
+        <div class="swipe-hint">
+          <span>Desliza a los lados para más paneles ➔</span>
         </div>
       </section>
 
-      <!-- Mini Gráfica de Tendencia (90px) -->
-      <section class="mini-chart-box">
-        <div class="chart-header-row">
-          <span class="chart-title">Rendimiento en tiempo real</span>
-          <div class="chart-toggles">
-            <button :class="{ active: chartMetric === 'cpu' }" @click="chartMetric = 'cpu'">CPU</button>
-            <button :class="{ active: chartMetric === 'ram' }" @click="chartMetric = 'ram'">RAM</button>
-          </div>
+      <!-- ================= PÁGINA 2: PM2 COMPLETO & ANDROID OS ================= -->
+      <section class="launcher-page page-detail">
+        <div class="detail-header">
+          <h2>Procesos PM2 &amp; Android OS</h2>
+          <span class="muted">Panel 2 de 3</span>
         </div>
-        <div class="mini-svg-wrap">
-          <svg viewBox="0 0 320 85" preserveAspectRatio="none" class="chart-svg">
-            <defs>
-              <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#00E676" stop-opacity="0.35" />
-                <stop offset="100%" stop-color="#00E676" stop-opacity="0.0" />
-              </linearGradient>
-            </defs>
-            <path v-if="chartAreaPath" :d="chartAreaPath" fill="url(#chartGrad)" />
-            <path v-if="chartLinePath" :d="chartLinePath" fill="none" stroke="#00E676" stroke-width="2" />
-          </svg>
+
+        <div class="detail-scroll">
+          <Pm2Table :processes="telemetry.pm2" @restart="$emit('restart-pm2', $event)" />
+          <AndroidProcTable
+            :processes="androidProc.processes"
+            :summary="androidProc.summary"
+          />
         </div>
       </section>
 
-      <!-- Mini Lista de Servicios PM2 -->
-      <section class="mini-pm2-box">
-        <div class="pm2-head-row">
-          <span class="section-title">Servicios Activos (PM2)</span>
-          <span class="badge-count">{{ telemetry.pm2.filter(p => p.status === 'online').length }} en línea</span>
+      <!-- ================= PÁGINA 3: LOGS & CONTROL DE PANTALLA ================= -->
+      <section class="launcher-page page-detail">
+        <div class="detail-header">
+          <h2>Visor de Logs &amp; Hardware</h2>
+          <span class="muted">Panel 3 de 3</span>
         </div>
 
-        <div class="pm2-list">
-          <div v-for="proc in telemetry.pm2" :key="proc.id" class="pm2-compact-row">
-            <div class="proc-left">
-              <span class="proc-status-dot" :class="proc.status"></span>
-              <strong class="proc-name">{{ proc.name }}</strong>
-              <small class="proc-role" v-if="proc.role">{{ proc.role }}</small>
-            </div>
-            <div class="proc-right">
-              <span class="proc-metrics">{{ proc.memoryMb }} MB • {{ proc.cpu }}%</span>
-              <button
-                class="btn-restart-mini"
-                title="Reiniciar proceso"
-                @click="$emit('restart-pm2', proc.name)"
-              >
-                ↻
-              </button>
-            </div>
-          </div>
+        <div class="detail-scroll">
+          <DonutCard
+            :ram="telemetry.ram"
+            :screen-state="telemetry.screen.state"
+            :screen-label="telemetry.screen.label"
+            :loading="loadingScreen"
+            @screen-on="$emit('screen-action', 'on')"
+            @screen-off="$emit('screen-action', 'off')"
+          />
+          <LogViewer @notify="$emit('notify', $event)" />
         </div>
       </section>
-    </main>
+    </div>
 
-    <!-- SUB-VISTAS (PM2 Detallado, Android OS, Logs, Pantalla) -->
-    <main v-else class="subview-content">
-      <div class="subview-header">
-        <button class="back-pill" @click="currentSubView = 'dashboard'">
-          ← Volver al Monitor
-        </button>
-      </div>
-
-      <div v-if="currentSubView === 'pm2'">
-        <Pm2Table :processes="telemetry.pm2" @restart="$emit('restart-pm2', $event)" />
-      </div>
-
-      <div v-else-if="currentSubView === 'android'">
-        <AndroidProcTable
-          :processes="androidProc.processes"
-          :summary="androidProc.summary"
-        />
-      </div>
-
-      <div v-else-if="currentSubView === 'logs'">
-        <LogViewer @notify="$emit('notify', $event)" />
-      </div>
-
-      <div v-else-if="currentSubView === 'screen'">
-        <DonutCard
-          :ram="telemetry.ram"
-          :screen-state="telemetry.screen.state"
-          :screen-label="telemetry.screen.label"
-          :loading="loadingScreen"
-          @screen-on="$emit('screen-action', 'on')"
-          @screen-off="$emit('screen-action', 'off')"
-        />
-      </div>
-    </main>
+    <!-- Indicador de Paginación Estilo Launcher (● ○ ○) -->
+    <div class="launcher-dots">
+      <span
+        v-for="i in 3"
+        :key="i"
+        class="dot-indicator"
+        :class="{ active: currentPage === (i - 1) }"
+        @click="scrollToPage(i - 1)"
+      ></span>
+    </div>
   </div>
 </template>
 
@@ -246,18 +224,38 @@ const props = defineProps({
   }
 });
 
-defineEmits(['refresh', 'restart-pm2', 'screen-action', 'notify']);
+defineEmits(['restart-pm2', 'screen-action', 'notify']);
 
-const currentSubView = ref('dashboard');
+const pagesTrack = ref(null);
+const currentPage = ref(0);
 const chartMetric = ref('cpu');
 
-// Mini Gráfica SVG simplificada para móvil
+function handleTrackScroll(e) {
+  const el = e.target;
+  if (!el) return;
+  const pageIndex = Math.round(el.scrollLeft / el.clientWidth);
+  if (pageIndex !== currentPage.value) {
+    currentPage.value = pageIndex;
+  }
+}
+
+function scrollToPage(index) {
+  if (!pagesTrack.value) return;
+  const w = pagesTrack.value.clientWidth;
+  pagesTrack.value.scrollTo({
+    left: index * w,
+    behavior: 'smooth'
+  });
+  currentPage.value = index;
+}
+
+// Mini Gráfica SVG en tiempo real (320x80)
 const chartLinePath = computed(() => {
   const history = props.telemetry.history || [];
   if (history.length < 2) return '';
 
   const w = 320;
-  const h = 85;
+  const h = 80;
   const pad = 6;
   const step = (w - pad * 2) / (history.length - 1);
 
@@ -275,7 +273,7 @@ const chartAreaPath = computed(() => {
   if (!chartLinePath.value) return '';
   const history = props.telemetry.history || [];
   const w = 320;
-  const h = 85;
+  const h = 80;
   const pad = 6;
   const lastX = pad + (w - pad * 2);
   return `${chartLinePath.value} L ${lastX},${h} L ${pad},${h} Z`;
@@ -283,184 +281,185 @@ const chartAreaPath = computed(() => {
 </script>
 
 <style scoped>
-.launcher-container {
-  min-height: 100vh;
+/* Contenedor Raíz: 100vh exactos, bloqueo total de scroll vertical y pull-to-refresh */
+.launcher-shell {
+  height: 100vh;
+  height: 100dvh;
+  width: 100vw;
   background: #060a08;
   color: #f0fdf4;
-  padding: 8px 10px 80px; /* 80px libres abajo para el boton nativo de Android */
+  overflow: hidden;
+  position: relative;
+  touch-action: pan-x;
+  overscroll-behavior: none;
+  user-select: none;
+}
+
+/* Pista Horizontal Deslizable con Snap a 60 FPS */
+.pages-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: none;
+}
+.pages-track::-webkit-scrollbar {
+  display: none;
+}
+
+/* Cada Página Ocupa el 100% de la Pantalla */
+.launcher-page {
+  min-width: 100vw;
+  max-width: 100vw;
+  height: 100%;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  box-sizing: border-box;
+  padding: 8px 10px 88px; /* 88px libres para dots e icono de apps */
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-width: 480px;
-  margin: 0 auto;
-  box-sizing: border-box;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+/* Página 1 (Kiosk): Sin ningún scroll, todo cabe en la altura */
+.page-kiosk {
+  gap: 6px;
 }
 
 /* Header */
-.launcher-header {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   background: #09120e;
   border: 1px solid #162e22;
-  border-radius: 12px;
-  padding: 8px 10px;
+  border-radius: 10px;
+  padding: 6px 10px;
+  flex-shrink: 0;
 }
-.header-brand {
+.header-left {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 .brand-avatar {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   background: linear-gradient(135deg, #0b3b24, #061c12);
   border: 1.5px solid #00e676;
-  border-radius: 8px;
+  border-radius: 6px;
   display: grid;
   place-items: center;
   font-weight: 800;
   color: #00e676;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
-.brand-title-row {
+.brand-title {
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.brand-name {
-  font-size: 0.88rem;
-  font-weight: 700;
+.brand-title strong {
+  font-size: 0.82rem;
   color: #ffffff;
-  margin: 0;
 }
-.server-tag {
+.tag-live {
   background: rgba(0, 230, 118, 0.15);
   color: #00e676;
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-weight: 700;
-  padding: 1px 5px;
+  padding: 1px 4px;
   border-radius: 4px;
 }
 .brand-sub {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: #8b9d93;
 }
-.live-dot {
+.pulse-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: #00e676;
+  box-shadow: 0 0 6px #00e676;
 }
-.sub-sep {
-  color: #3e5246;
+.sep {
+  color: #2a3d32;
 }
-.btn-icon {
-  background: #0d1a13;
-  border: 1px solid #1e3a2b;
-  color: #8b9d93;
-  border-radius: 8px;
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-}
-.btn-icon:hover {
+.live-tag {
+  font-size: 0.62rem;
+  font-weight: 700;
   color: #00e676;
-}
-
-/* Sub Nav Pills */
-.sub-nav-bar {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 2px 0 4px;
-  scrollbar-width: none;
-}
-.sub-nav-bar::-webkit-scrollbar {
-  display: none;
-}
-.nav-pill {
-  background: #09120e;
-  border: 1px solid #162e22;
-  color: #8b9d93;
-  font-size: 0.72rem;
-  font-weight: 600;
-  padding: 4px 10px;
+  background: rgba(0, 230, 118, 0.1);
+  padding: 2px 6px;
   border-radius: 999px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.nav-pill.active {
-  background: rgba(0, 230, 118, 0.16);
-  color: #00e676;
-  border-color: #00e676;
+  border: 1px solid rgba(0, 230, 118, 0.25);
 }
 
-/* Launcher Content */
-.launcher-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* KPI Grid 2x2 */
-.kpi-grid-compact {
+/* Grid 2x2 */
+.grid-2x2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
+  flex-shrink: 0;
 }
-.card-kpi {
+.tile-kpi {
   background: #09120e;
   border: 1px solid #162e22;
   border-radius: 10px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 74px;
+  min-height: 68px;
 }
-.kpi-head {
+.tile-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-.kpi-title {
-  font-size: 0.7rem;
+.tile-label {
+  font-size: 0.68rem;
   color: #8b9d93;
   font-weight: 500;
 }
-.kpi-tag {
-  font-size: 0.62rem;
+.tile-badge {
+  font-size: 0.6rem;
   font-weight: 700;
-  padding: 1px 5px;
+  padding: 1px 4px;
   border-radius: 999px;
 }
-.kpi-tag.green {
+.tile-badge.green {
   background: rgba(0, 230, 118, 0.14);
   color: #00e676;
 }
-.kpi-tag.red {
+.tile-badge.red {
   background: rgba(239, 68, 68, 0.16);
   color: #f87171;
 }
-.kpi-num {
-  font-size: 1.28rem;
+.tile-val {
+  font-size: 1.18rem;
   font-weight: 700;
   color: #ffffff;
-  margin: 2px 0;
+  margin: 1px 0;
   letter-spacing: -0.02em;
 }
-.kpi-rate-row {
+.tile-rates {
   display: flex;
-  gap: 8px;
-  font-size: 0.8rem;
+  gap: 6px;
+  font-size: 0.74rem;
   font-weight: 700;
-  margin: 2px 0;
+  margin: 1px 0;
 }
 .rate-down {
   color: #00e676;
@@ -468,47 +467,48 @@ const chartAreaPath = computed(() => {
 .rate-up {
   color: #38bdf8;
 }
-.kpi-foot {
+.tile-bottom {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.65rem;
+  font-size: 0.62rem;
 }
 .muted {
   color: #677b70;
 }
-.mini-bar-track {
-  width: 45px;
+.bar-track {
+  width: 42px;
   height: 4px;
   background: #162e22;
   border-radius: 999px;
   overflow: hidden;
 }
-.mini-bar-fill {
+.bar-fill {
   height: 100%;
   background: #00e676;
   border-radius: 999px;
 }
 
-/* Mini Chart */
-.mini-chart-box {
+/* Gráfica SVG */
+.chart-tile {
   background: #09120e;
   border: 1px solid #162e22;
   border-radius: 10px;
-  padding: 8px 10px 4px;
+  padding: 6px 8px 2px;
+  flex-shrink: 0;
 }
-.chart-header-row {
+.chart-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
-.chart-title {
-  font-size: 0.72rem;
+.chart-label {
+  font-size: 0.68rem;
   color: #8b9d93;
   font-weight: 600;
 }
-.chart-toggles {
+.chart-switch {
   display: flex;
   gap: 2px;
   background: #060a08;
@@ -516,23 +516,23 @@ const chartAreaPath = computed(() => {
   border-radius: 999px;
   padding: 1px;
 }
-.chart-toggles button {
+.chart-switch button {
   background: transparent;
   border: none;
   color: #8b9d93;
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   font-weight: 600;
-  padding: 2px 7px;
+  padding: 1px 6px;
   border-radius: 999px;
   cursor: pointer;
 }
-.chart-toggles button.active {
+.chart-switch button.active {
   background: #00e676;
   color: #04140b;
 }
-.mini-svg-wrap {
+.chart-svg-wrap {
   width: 100%;
-  height: 75px;
+  height: 65px;
 }
 .chart-svg {
   width: 100%;
@@ -540,102 +540,149 @@ const chartAreaPath = computed(() => {
 }
 
 /* Mini PM2 */
-.mini-pm2-box {
+.pm2-tile {
   background: #09120e;
   border: 1px solid #162e22;
   border-radius: 10px;
-  padding: 8px 10px;
+  padding: 6px 8px;
+  flex-shrink: 0;
 }
-.pm2-head-row {
+.pm2-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
-.section-title {
-  font-size: 0.72rem;
+.pm2-title {
+  font-size: 0.68rem;
   color: #8b9d93;
   font-weight: 600;
 }
-.badge-count {
-  font-size: 0.62rem;
+.pm2-badge {
+  font-size: 0.58rem;
   color: #00e676;
   background: rgba(0, 230, 118, 0.12);
-  padding: 1px 6px;
+  padding: 1px 5px;
   border-radius: 999px;
   font-weight: 600;
 }
-.pm2-list {
+.pm2-items {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
-.pm2-compact-row {
+.pm2-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   background: #060a08;
   border: 1px solid #11241a;
   border-radius: 6px;
-  padding: 5px 8px;
+  padding: 4px 6px;
 }
-.proc-left {
+.proc-info {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
-.proc-status-dot {
+.proc-info .dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: #f87171;
 }
-.proc-status-dot.online {
+.proc-info .dot.online {
   background: #00e676;
   box-shadow: 0 0 5px #00e676;
 }
-.proc-name {
-  font-size: 0.75rem;
+.proc-info .name {
+  font-size: 0.72rem;
   color: #ffffff;
 }
-.proc-role {
-  font-size: 0.65rem;
+.proc-info .role {
+  font-size: 0.62rem;
   color: #677b70;
 }
-.proc-right {
+.proc-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
-.proc-metrics {
-  font-size: 0.68rem;
+.proc-actions .stats {
+  font-size: 0.65rem;
   color: #8b9d93;
 }
-.btn-restart-mini {
+.btn-restart {
   background: #0d1a13;
   border: 1px solid #162e22;
   color: #00e676;
-  font-size: 0.75rem;
-  width: 22px;
-  height: 22px;
+  font-size: 0.7rem;
+  width: 20px;
+  height: 20px;
   border-radius: 4px;
   cursor: pointer;
   display: grid;
   place-items: center;
 }
 
-/* Sub-views */
-.subview-header {
-  margin-bottom: 8px;
+.swipe-hint {
+  text-align: center;
+  font-size: 0.62rem;
+  color: #4a5e52;
+  padding: 2px 0;
 }
-.back-pill {
-  background: #09120e;
-  border: 1px solid #162e22;
-  color: #00e676;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 6px 12px;
-  border-radius: 999px;
+
+/* Páginas de Detalle (2 y 3) */
+.page-detail {
+  justify-content: flex-start;
+  gap: 8px;
+}
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+.detail-header h2 {
+  font-size: 0.88rem;
+  margin: 0;
+  color: #ffffff;
+}
+.detail-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 20px;
+  scrollbar-width: thin;
+}
+
+/* Indicadores de Paginación Estilo Launcher (● ○ ○) */
+.launcher-dots {
+  position: absolute;
+  bottom: 60px; /* Arriba del boton nativo de aplicaciones */
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+  z-index: 10;
+}
+.dot-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #1a3325;
+  transition: all 0.25s ease;
   cursor: pointer;
+}
+.dot-indicator.active {
+  width: 18px;
+  border-radius: 999px;
+  background: #00e676;
+  box-shadow: 0 0 8px rgba(0, 230, 118, 0.6);
 }
 </style>

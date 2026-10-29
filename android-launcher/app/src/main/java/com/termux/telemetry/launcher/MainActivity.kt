@@ -42,11 +42,9 @@ class MainActivity : AppCompatActivity() {
 
         setupWebView()
 
-        swipeRefresh.setColorSchemeColors(0xFF00E676.toInt())
-        swipeRefresh.setProgressBackgroundColorSchemeColor(0xFF09120E.toInt())
-        swipeRefresh.setOnRefreshListener {
-            loadDashboard()
-        }
+        // Desactivamos pull-to-refresh para comportamiento nativo de Launcher
+        swipeRefresh.isEnabled = false
+        webView.overScrollMode = View.OVER_SCROLL_NEVER
 
         cardAppsButton.setOnClickListener {
             openAppsDrawer()

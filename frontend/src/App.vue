@@ -497,6 +497,9 @@ function goToLogin() {
 
 function startDashboard() {
   authState.value = 'ready';
+  if (isLauncher.value) {
+    refreshMs.value = 1000;
+  }
   fetchTelemetry();
   restartPolling();
 }
