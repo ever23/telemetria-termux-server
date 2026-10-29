@@ -18,23 +18,26 @@ Micro-panel web de telemetría **ultra-liviano** para convertir un teléfono And
 
 ## 🧱 Requisitos
 
-En el dispositivo Android (Termux):
+En el dispositivo Android (dentro de Termux):
 
 ```bash
 pkg update && pkg install nodejs-lts android-tools git
 npm install -g pm2
 ```
 
-- **ADB inalámbrico** activo en el propio teléfono (Opciones de desarrollador → Depuración inalámbrica, o `adb tcpip 5555` desde una PC) y emparejado consigo mismo:
+> **¿Por qué `android-tools`?**  
+> Instala el comando `adb` directamente **dentro de Termux**. Esto permite que el servidor Node.js se comunique con el teléfono a través de `127.0.0.1:5555` con permisos de sistema (`uid=shell/2000`).  
+> En Android 8+ (incluido Android 11 Go), SELinux bloquea a Termux el acceso directo a `/proc/stat` y `/sys/class/power_supply/battery`. A través de ADB local, el panel puede leer `dumpsys battery`, `dumpsys power` y encender/apagar la pantalla con `input keyevent` sin requerir root.
+
+- **ADB inalámbrico** activo en el propio teléfono (Opciones de desarrollador → Depuración inalámbrica en Android 11+, o activado una vez desde PC vía `adb tcpip 5555`) y conectado a sí mismo en Termux:
   ```bash
   adb connect 127.0.0.1:5555
   ```
-  > Es necesario porque en Android 8+ SELinux bloquea a Termux el acceso a `/proc/stat` y `/sys/class/power_supply`. El usuario `shell` de ADB sí puede leerlos. Sin ADB el panel funciona, pero con datos de CPU/batería limitados y sin control de pantalla.
 
 ## 🚀 Instalación (en Termux)
 
 ```bash
-git clone https://github.com/<tu-usuario>/telemetria-termux-server.git
+git clone https://github.com/ever23/telemetria-termux-server.git
 cd telemetria-termux-server
 cp .env.example .env          # opcional: ajusta puerto / host ADB
 npm install --omit=dev
