@@ -1,5 +1,7 @@
 <template>
-  <div class="dashboard-shell">
+  <LoginView v-if="authState === 'login'" @success="onLoginSuccess" />
+
+  <div v-else-if="authState === 'ready'" class="dashboard-shell">
     <!-- Navegación Lateral (PC) e Inferior (Móvil) -->
     <SidebarNav
       :active-tab="activeTab"
@@ -68,6 +70,19 @@
               </svg>
             </button>
 
+            <button
+              v-if="authConfigured"
+              class="icon-action-btn"
+              title="Cerrar sesión"
+              @click="logout"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
+
             <div class="server-avatar" :title="`Uptime: ${telemetry.uptime.systemFormatted}`">
               <span>{{ (telemetry.server.deviceName || 'TX').replace(/\s+/g, '').slice(-3).toUpperCase() }}</span>
               <i class="online-ring"></i>
@@ -75,6 +90,12 @@
           </div>
         </div>
       </header>
+
+      <!-- Aviso cuando el servidor no tiene contraseña configurada -->
+      <div v-if="!authConfigured" class="auth-warning">
+        ⚠ Panel sin contraseña: modo solo lectura y control de pantalla bloqueado.
+        Ejecuta <code>npm run set-password</code> en el servidor.
+      </div>
 
       <!-- Notificación flotante al encender/apagar pantalla ADB -->
       <transition name="fade">
@@ -151,7 +172,7 @@
             :screen="telemetry.screen"
             :uptime="telemetry.uptime"
             :server="telemetry.server"
-            :loading-action="loadingScreen"
+            :loading-action="loadingScreen || !authConfigured"
             @screen-action="handleScreenAction"
           />
         </aside>
@@ -168,6 +189,10 @@ import LineChart from './components/LineChart.vue';
 import CoreBars from './components/CoreBars.vue';
 import DonutCard from './components/DonutCard.vue';
 import Pm2Table from './components/Pm2Table.vue';
+import LoginView from './components/LoginView.vue';
+
+const authState = ref('loading'); // 'loading' | 'login' | 'ready'
+const authConfigured = ref(true);
 
 const activeTab = ref('dashboard');
 const searchQuery = ref('');
@@ -254,6 +279,10 @@ const filteredPm2 = computed(() => {
 async function fetchTelemetry() {
   try {
     const res = await fetch('/api/telemetry');
+    if (res.status === 401) {
+      goToLogin();
+      return;
+    }
     if (!res.ok) return;
     const data = await res.json();
     if (data.server) Object.assign(telemetry.server, data.server);
@@ -274,42 +303,85 @@ async function handleScreenAction(mode) {
   try {
     const res = await fetch(`/api/screen/${mode}`, { method: 'POST' });
     const data = await res.json();
+    if (res.status === 401) {
+      goToLogin();
+      return;
+    }
+    if (!res.ok) {
+      showToast(data.error || 'Acción no permitida');
+      return;
+    }
     if (data.screen) {
       telemetry.screen.state = data.screen;
     }
-    toastMessage.value =
+    showToast(
       mode === 'on'
         ? 'Comando ADB enviado: Pantalla ENCENDIDA (keyevent 224)'
-        : 'Comando ADB enviado: Pantalla EN REPOSO (keyevent 223)';
-    setTimeout(() => {
-      toastMessage.value = '';
-    }, 3200);
+        : 'Comando ADB enviado: Pantalla EN REPOSO (keyevent 223)'
+    );
   } catch (_) {
-    toastMessage.value = 'Error al ejecutar script ADB de pantalla';
-    setTimeout(() => {
-      toastMessage.value = '';
-    }, 3200);
+    showToast('Error al ejecutar script ADB de pantalla');
   } finally {
     loadingScreen.value = false;
   }
 }
 
-function restartPolling() {
+function showToast(msg) {
+  toastMessage.value = msg;
+  setTimeout(() => {
+    toastMessage.value = '';
+  }, 3200);
+}
+
+function stopPolling() {
   if (pollTimer) {
     clearInterval(pollTimer);
     pollTimer = null;
   }
-  if (refreshMs.value > 0) {
+}
+
+function restartPolling() {
+  stopPolling();
+  if (refreshMs.value > 0 && authState.value === 'ready') {
     pollTimer = setInterval(fetchTelemetry, refreshMs.value);
   }
 }
 
-onMounted(() => {
+function goToLogin() {
+  stopPolling();
+  authState.value = 'login';
+}
+
+function startDashboard() {
+  authState.value = 'ready';
   fetchTelemetry();
   restartPolling();
+}
+
+async function onLoginSuccess() {
+  authConfigured.value = true;
+  startDashboard();
+}
+
+async function logout() {
+  await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+  goToLogin();
+}
+
+onMounted(async () => {
+  try {
+    const res = await fetch('/api/auth/status');
+    const status = await res.json();
+    authConfigured.value = status.configured;
+    if (status.configured && !status.authenticated) {
+      authState.value = 'login';
+      return;
+    }
+  } catch (_) {
+    // Si falla el estado, se intenta cargar igualmente; un 401 redirigirá al login
+  }
+  startDashboard();
 });
 
-onUnmounted(() => {
-  if (pollTimer) clearInterval(pollTimer);
-});
+onUnmounted(stopPolling);
 </script>

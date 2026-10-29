@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node --max-old-space-size=48 server.js",
     "dev": "node server.js",
-    "build:ui": "npm --prefix frontend run build"
+    "build:ui": "npm --prefix frontend run build",
+    "set-password": "node scripts/set-password.js"
   },
   "keywords": [
     "termux",
@@ -20,7 +21,6 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "cors": "^2.8.5",
     "express": "^4.21.2"
   }
 }
