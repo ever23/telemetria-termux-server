@@ -30,15 +30,22 @@
       <div class="net-box">
         <div class="net-box-title">
           <span>Tráfico wlan0 (Kernel)</span>
-          <span class="muted-text">Acumulado</span>
+          <span class="rate-badge">En vivo</span>
         </div>
-        <div class="traffic-row">
-          <span>↓ Descarga:</span>
-          <strong>{{ network.traffic?.rxFormatted || '0 MB' }}</strong>
+        <div class="traffic-rate-row">
+          <div class="rate-col">
+            <span class="rate-icon down">↓</span>
+            <span class="rate-val">{{ network.traffic?.rxRateFormatted || '0.0 KB/s' }}</span>
+          </div>
+          <div class="rate-col">
+            <span class="rate-icon up">↑</span>
+            <span class="rate-val">{{ network.traffic?.txRateFormatted || '0.0 KB/s' }}</span>
+          </div>
         </div>
-        <div class="traffic-row">
-          <span>↑ Subida:</span>
-          <strong>{{ network.traffic?.txFormatted || '0 MB' }}</strong>
+        <div class="traffic-totals">
+          <small class="muted-text">
+            Total: ↓ {{ network.traffic?.rxFormatted || '0 MB' }} • ↑ {{ network.traffic?.txFormatted || '0 MB' }}
+          </small>
         </div>
       </div>
 
@@ -180,6 +187,43 @@ function save() {
   font-size: 1.45rem;
   font-weight: 700;
   color: var(--text-white);
+}
+.rate-badge {
+  font-size: 0.68rem;
+  padding: 1px 6px;
+  background: rgba(0, 230, 118, 0.15);
+  color: var(--neon-green);
+  border-radius: 4px;
+  font-weight: 600;
+}
+.traffic-rate-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 4px 0;
+}
+.rate-col {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rate-icon {
+  font-size: 1rem;
+  font-weight: 800;
+}
+.rate-icon.down {
+  color: var(--neon-green);
+}
+.rate-icon.up {
+  color: #38bdf8;
+}
+.rate-val {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-white);
+}
+.traffic-totals {
+  margin-top: 2px;
 }
 .traffic-row {
   display: flex;
