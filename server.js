@@ -1,11 +1,16 @@
 const express = require('express');
 const path = require('path');
+const { exec } = require('child_process');
 const config = require('./lib/config');
 const { discoverHostInfo } = require('./lib/discovery');
 const { fetchAdbTelemetry, controlScreen, getManualScreenState } = require('./lib/adb');
 const { getCpuMetrics, getRamMetrics, getUptimeMetrics } = require('./lib/system');
 const { getBatteryMetrics } = require('./lib/battery');
 const { getPm2Processes } = require('./lib/pm2');
+const { getStorageMetrics } = require('./lib/storage');
+const { getAndroidProcesses } = require('./lib/android-proc');
+const { getNetworkTelemetry } = require('./lib/network');
+const { getLogLines, clearLog } = require('./lib/logs');
 const auth = require('./lib/auth');
 
 const app = express();
@@ -14,9 +19,9 @@ const MAX_POINTS = config.historyMaxPoints || 20;
 
 app.disable('x-powered-by');
 app.set('trust proxy', 'loopback');
-app.use(express.json({ limit: '2kb' }));
+app.use(express.json({ limit: '4kb' }));
 
-// Ring Buffer en memoria para que la gráfica de línea aparezca poblada desde el primer segundo
+// Ring Buffer en memoria para gráfica de telemetría
 const history = [];
 
 function formatTimeLabel(date) {
@@ -29,14 +34,14 @@ function formatTimeLabel(date) {
 function seedInitialHistory() {
   const now = Date.now();
   const baseCpu = [14, 18, 16, 22, 19, 25, 21, 17, 23, 20, 26, 22];
-  const baseRam = [58, 59, 59, 60, 60, 61, 61, 60, 61, 62, 61, 62];
+  const baseRam = [48, 49, 49, 50, 50, 51, 51, 50, 51, 52, 51, 50];
   for (let i = 0; i < baseCpu.length; i++) {
     const t = new Date(now - (baseCpu.length - i) * 3000);
     history.push({
       time: formatTimeLabel(t),
       cpu: baseCpu[i],
       ram: baseRam[i],
-      temp: 31.2
+      temp: 32.5
     });
   }
 }
@@ -69,12 +74,14 @@ async function buildTelemetryPayload() {
     fetchAdbTelemetry()
   ]);
 
-  const [cpu, ram, battery, uptime, pm2] = await Promise.all([
+  const [cpu, ram, battery, uptime, pm2, storage, network] = await Promise.all([
     getCpuMetrics(adbData, hostInfo.socName),
     getRamMetrics(),
     getBatteryMetrics(adbData),
     getUptimeMetrics(),
-    getPm2Processes()
+    getPm2Processes(),
+    getStorageMetrics(),
+    getNetworkTelemetry(hostInfo.tunnelUrl)
   ]);
 
   const screenState = (adbData && adbData.screen) || getManualScreenState() || 'OFF';
@@ -90,6 +97,8 @@ async function buildTelemetryPayload() {
       state: screenState,
       label: screenState === 'ON' ? 'Encendida (Awake)' : 'En reposo (Headless)'
     },
+    storage,
+    network,
     uptime,
     pm2,
     history
@@ -97,7 +106,7 @@ async function buildTelemetryPayload() {
 }
 
 // ---------------------------------------------------------------------------
-// Autenticación (contraseña única, hash scrypt en .env)
+// Autenticación
 // ---------------------------------------------------------------------------
 app.get('/api/auth/status', (req, res) => {
   res.json({ configured: auth.isConfigured(), authenticated: auth.isAuthenticated(req) });
@@ -137,7 +146,9 @@ app.post('/api/auth/logout', (_req, res) => {
   res.json({ ok: true });
 });
 
-// Endpoint principal consolidado (1 sola llamada HTTP por ciclo)
+// ---------------------------------------------------------------------------
+// Telemetría General
+// ---------------------------------------------------------------------------
 app.get(['/api/telemetry', '/api/status'], auth.requireAuthIfConfigured, async (_req, res) => {
   try {
     const payload = await buildTelemetryPayload();
@@ -147,7 +158,66 @@ app.get(['/api/telemetry', '/api/status'], auth.requireAuthIfConfigured, async (
   }
 });
 
-// Endpoint de solo lectura para procesos PM2
+// ---------------------------------------------------------------------------
+// Procesos Android y ZRAM/Swap
+// ---------------------------------------------------------------------------
+app.get('/api/android/processes', auth.requireAuthIfConfigured, async (_req, res) => {
+  try {
+    const data = await getAndroidProcesses();
+    res.json({ ok: true, ...data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Almacenamiento y Red
+// ---------------------------------------------------------------------------
+app.get('/api/system/storage', auth.requireAuthIfConfigured, async (_req, res) => {
+  try {
+    const storage = await getStorageMetrics();
+    res.json({ ok: true, storage });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get('/api/system/network', auth.requireAuthIfConfigured, async (_req, res) => {
+  try {
+    const hostInfo = await discoverHostInfo();
+    const network = await getNetworkTelemetry(hostInfo.tunnelUrl);
+    res.json({ ok: true, network });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Visor y Rotación de Logs
+// ---------------------------------------------------------------------------
+app.get('/api/logs/:target', auth.requireAuthIfConfigured, async (req, res) => {
+  try {
+    const target = req.params.target;
+    const content = await getLogLines(target);
+    res.json({ ok: true, target, content });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post('/api/logs/:target/clear', auth.requireAuthStrict, async (req, res) => {
+  try {
+    const target = req.params.target;
+    const result = await clearLog(target);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Procesos PM2 y Acciones
+// ---------------------------------------------------------------------------
 app.get('/api/pm2', auth.requireAuthIfConfigured, async (_req, res) => {
   try {
     const processes = await getPm2Processes();
@@ -157,7 +227,22 @@ app.get('/api/pm2', auth.requireAuthIfConfigured, async (_req, res) => {
   }
 });
 
-// Endpoints de control de pantalla vía script ADB
+app.post('/api/pm2/restart/:id', auth.requireAuthStrict, (req, res) => {
+  const idOrName = req.params.id;
+  // Sanitizar parámetro para evitar inyección
+  if (!/^[a-zA-Z0-9_-]+$/.test(idOrName)) {
+    return res.status(400).json({ ok: false, error: 'Identificador no válido' });
+  }
+
+  exec(`pm2 restart ${idOrName}`, { timeout: 6000 }, (err) => {
+    if (err) return res.status(500).json({ ok: false, error: err.message });
+    res.json({ ok: true, message: `Proceso ${idOrName} reiniciado` });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Control de Pantalla ADB
+// ---------------------------------------------------------------------------
 app.post(['/api/screen/on', '/api/screen/wake'], auth.requireAuthStrict, async (_req, res) => {
   try {
     const result = await controlScreen('on');
@@ -174,6 +259,19 @@ app.post(['/api/screen/off', '/api/screen/sleep'], auth.requireAuthStrict, async
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Actualización del Servidor desde Git
+// ---------------------------------------------------------------------------
+app.post('/api/system/update', auth.requireAuthStrict, (_req, res) => {
+  const updateScript = path.resolve(__dirname, 'scripts/actualizar.sh');
+  res.json({ ok: true, message: 'Actualización iniciada en segundo plano' });
+
+  // Ejecutar actualizar.sh en segundo plano
+  setTimeout(() => {
+    exec(`bash "${updateScript}" > /dev/null 2>&1 &`);
+  }, 500);
 });
 
 // Servir archivos estáticos compilados por Vite en public/

@@ -10,6 +10,7 @@
             <th class="num-col">CPU</th>
             <th class="num-col">Uptime</th>
             <th class="num-col">Estado</th>
+            <th class="num-col">Acción</th>
           </tr>
         </thead>
         <tbody>
@@ -30,6 +31,15 @@
                 {{ proc.status === 'online' ? 'ONLINE' : proc.status.toUpperCase() }}
               </span>
             </td>
+            <td class="num-col">
+              <button
+                class="restart-btn"
+                title="Reiniciar proceso"
+                @click="$emit('restart', proc.name)"
+              >
+                ↻
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -44,4 +54,27 @@ defineProps({
     default: () => []
   }
 });
+
+defineEmits(['restart']);
 </script>
+
+<style scoped>
+.restart-btn {
+  background: #0d1a13;
+  border: 1px solid var(--border-emerald);
+  color: var(--neon-green);
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.15s;
+}
+.restart-btn:hover {
+  background: var(--neon-green);
+  color: #04140b;
+}
+</style>

@@ -6,14 +6,14 @@
     <SidebarNav
       :active-tab="activeTab"
       :server="telemetry.server"
-      @select="activeTab = $event"
+      @select="selectTab"
+      @update-server="handleUpdateServer"
     />
 
     <!-- Área Principal -->
     <main class="main-area">
       <!-- Topbar Escritorio y Móvil -->
       <header class="topbar">
-        <!-- Encabezado Móvil Superior (Igual a la referencia móvil Inbyte) -->
         <div class="mobile-brand-bar">
           <div class="brand-inline">
             <div class="brand-badge sm">{{ (telemetry.server.deviceName || 'T').charAt(0).toUpperCase() }}</div>
@@ -25,7 +25,6 @@
           </div>
         </div>
 
-        <!-- Buscador estilo Inbyte (Escritorio) -->
         <div class="search-box">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8" />
@@ -38,7 +37,6 @@
           />
         </div>
 
-        <!-- Sub-barra Móvil: Título 'Dashboard' + Selector de intervalo -->
         <div class="topbar-actions">
           <h1 class="mobile-page-title">{{ pageTitle }}</h1>
 
@@ -93,11 +91,11 @@
 
       <!-- Aviso cuando el servidor no tiene contraseña configurada -->
       <div v-if="!authConfigured" class="auth-warning">
-        ⚠ Panel sin contraseña: modo solo lectura y control de pantalla bloqueado.
+        ⚠ Panel sin contraseña: modo solo lectura y acciones bloqueadas.
         Ejecuta <code>npm run set-password</code> en el servidor.
       </div>
 
-      <!-- Notificación flotante al encender/apagar pantalla ADB -->
+      <!-- Notificación flotante de estado -->
       <transition name="fade">
         <div v-if="toastMessage" class="adb-toast">
           <span class="pulse-dot"></span>
@@ -107,63 +105,111 @@
 
       <!-- Contenido Principal en Grid Estilo Inbyte -->
       <div class="content-grid">
-        <!-- Columna Central / Izquierda (KPIs + Gráficas + Tabla PM2) -->
+        <!-- Columna Central / Izquierda -->
         <section class="center-column">
-          <!-- Fila 1: 3 Tarjetas KPI Superiores -->
-          <div
-            v-show="activeTab === 'dashboard' || activeTab === 'hardware'"
-            class="kpi-row"
-          >
-            <KpiCard
-              title="Uso de CPU"
-              :value="`${telemetry.cpu.usage}%`"
-              :badge="`Load ${telemetry.cpu.loadAvg?.[0] ?? '0.35'}`"
-              :subtext="telemetry.cpu.model"
-              :variant="telemetry.cpu.usage > 80 ? 'danger' : 'positive'"
-              :icon="icons.cpu"
-            />
+          <!-- Vista 1: Dashboard Principal -->
+          <template v-if="activeTab === 'dashboard'">
+            <div class="kpi-row">
+              <KpiCard
+                title="Uso de CPU"
+                :value="`${telemetry.cpu.usage}%`"
+                :badge="`Load ${telemetry.cpu.loadAvg?.[0] ?? '0.35'}`"
+                :subtext="telemetry.cpu.model"
+                :variant="telemetry.cpu.usage > 80 ? 'danger' : 'positive'"
+                :icon="icons.cpu"
+              />
 
-            <KpiCard
-              title="Memoria RAM"
-              :value="`${telemetry.ram.usedGb} GB`"
-              :badge="`${telemetry.ram.freePercent}% libre`"
-              :subtext="`Total ${telemetry.ram.totalGb} GB`"
-              :variant="telemetry.ram.percent > 80 ? 'danger' : 'positive'"
-              :icon="icons.ram"
-            />
+              <KpiCard
+                title="Memoria RAM"
+                :value="`${telemetry.ram.usedGb} GB`"
+                :badge="`${telemetry.ram.freePercent}% libre`"
+                :subtext="`Total ${telemetry.ram.totalGb} GB`"
+                :variant="telemetry.ram.percent > 80 ? 'danger' : 'positive'"
+                :icon="icons.ram"
+              />
 
-            <KpiCard
-              title="Batería & Temp"
-              :value="`${telemetry.battery.level}% • ${telemetry.battery.temperature}°C`"
-              :badge="`+${telemetry.battery.status}`"
-              :subtext="`Uptime ${telemetry.uptime.systemFormatted}`"
-              :variant="telemetry.battery.temperature >= 40 ? 'danger' : 'positive'"
-              :icon="icons.battery"
-            />
-          </div>
+              <KpiCard
+                title="Batería &amp; Temp"
+                :value="`${telemetry.battery.level}% • ${telemetry.battery.temperature}°C`"
+                :badge="`+${telemetry.battery.status}`"
+                :subtext="`Uptime ${telemetry.uptime.systemFormatted}`"
+                :variant="telemetry.battery.temperature >= 40 ? 'danger' : 'positive'"
+                :icon="icons.battery"
+              />
+            </div>
 
-          <!-- Fila 2: Gráfica de Línea Suave + Barras de Núcleos -->
-          <div
-            v-show="activeTab === 'dashboard' || activeTab === 'hardware'"
-            class="charts-row"
-          >
-            <LineChart :history="telemetry.history" />
-            <CoreBars
-              :cores="telemetry.cpu.cores"
-              :model="telemetry.cpu.model"
-              :load-avg="telemetry.cpu.loadAvg"
-            />
-          </div>
+            <div class="charts-row">
+              <LineChart :history="telemetry.history" />
+              <CoreBars
+                :cores="telemetry.cpu.cores"
+                :model="telemetry.cpu.model"
+                :load-avg="telemetry.cpu.loadAvg"
+              />
+            </div>
 
-          <!-- Fila 3: Tabla de Procesos PM2 (Solo lectura) -->
-          <div v-show="activeTab === 'dashboard' || activeTab === 'pm2'">
-            <Pm2Table :processes="filteredPm2" />
-          </div>
+            <NetworkCard :network="telemetry.network" />
+            <StorageCard :mounts="telemetry.storage" />
+            <Pm2Table :processes="filteredPm2" @restart="handlePm2Restart" />
+          </template>
+
+          <!-- Vista 2: Procesos PM2 -->
+          <template v-else-if="activeTab === 'pm2'">
+            <Pm2Table :processes="filteredPm2" @restart="handlePm2Restart" />
+          </template>
+
+          <!-- Vista 3: Procesos Android OS -->
+          <template v-else-if="activeTab === 'android'">
+            <AndroidProcTable
+              :processes="androidProc.processes"
+              :summary="androidProc.summary"
+            />
+          </template>
+
+          <!-- Vista 4: Visor de Logs -->
+          <template v-else-if="activeTab === 'logs'">
+            <LogViewer @notify="showToast" />
+          </template>
+
+          <!-- Vista 5: Disco y Red -->
+          <template v-else-if="activeTab === 'storage'">
+            <StorageCard :mounts="telemetry.storage" />
+            <NetworkCard :network="telemetry.network" />
+          </template>
+
+          <!-- Vista 6: Pantalla ADB / Hardware -->
+          <template v-else-if="activeTab === 'screen'">
+            <div class="kpi-row">
+              <KpiCard
+                title="Estado de Pantalla"
+                :value="telemetry.screen.state === 'ON' ? 'ENCENDIDA' : 'EN REPOSO'"
+                :badge="telemetry.screen.state === 'ON' ? 'Awake' : 'Headless'"
+                :subtext="telemetry.server.adbHost"
+                :variant="telemetry.screen.state === 'ON' ? 'positive' : 'warning'"
+                :icon="icons.screen"
+              />
+              <KpiCard
+                title="Batería &amp; Carga"
+                :value="`${telemetry.battery.level}%`"
+                :badge="telemetry.battery.status"
+                :subtext="`${telemetry.battery.voltage}V • ${telemetry.battery.plugged}`"
+                variant="positive"
+                :icon="icons.battery"
+              />
+              <KpiCard
+                title="Temperatura Térmica"
+                :value="`${telemetry.battery.temperature} °C`"
+                :badge="telemetry.battery.temperature < 38 ? 'Normal' : 'Elevada'"
+                subtext="Celda de Litio"
+                :variant="telemetry.battery.temperature >= 40 ? 'danger' : 'positive'"
+                :icon="icons.temp"
+              />
+            </div>
+          </template>
         </section>
 
         <!-- Columna Derecha (Donut Chart + Control de Pantalla ADB) -->
         <aside
-          v-show="activeTab === 'dashboard' || activeTab === 'screen' || activeTab === 'hardware'"
+          v-show="activeTab === 'dashboard' || activeTab === 'screen' || activeTab === 'storage'"
           class="right-column"
         >
           <DonutCard
@@ -190,10 +236,13 @@ import CoreBars from './components/CoreBars.vue';
 import DonutCard from './components/DonutCard.vue';
 import Pm2Table from './components/Pm2Table.vue';
 import LoginView from './components/LoginView.vue';
+import StorageCard from './components/StorageCard.vue';
+import NetworkCard from './components/NetworkCard.vue';
+import AndroidProcTable from './components/AndroidProcTable.vue';
+import LogViewer from './components/LogViewer.vue';
 
-const authState = ref('loading'); // 'loading' | 'login' | 'ready'
+const authState = ref('loading');
 const authConfigured = ref(true);
-
 const activeTab = ref('dashboard');
 const searchQuery = ref('');
 const refreshMs = ref(3000);
@@ -240,6 +289,8 @@ const telemetry = reactive({
     state: 'OFF',
     label: ''
   },
+  storage: [],
+  network: {},
   uptime: {
     systemFormatted: '--',
     processFormatted: '--',
@@ -249,18 +300,27 @@ const telemetry = reactive({
   history: []
 });
 
+const androidProc = reactive({
+  summary: {},
+  processes: []
+});
+
 const icons = {
   cpu: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
   ram: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="6.01" y2="12"/><line x1="10" y1="12" x2="10.01" y2="12"/><line x1="14" y1="12" x2="14.01" y2="12"/><line x1="18" y1="12" x2="18.01" y2="12"/></svg>`,
-  battery: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="13" x2="23" y2="11"/><polyline points="11 9 8 12 12 12 9 15"/></svg>`
+  battery: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="13" x2="23" y2="11"/><polyline points="11 9 8 12 12 12 9 15"/></svg>`,
+  screen: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`,
+  temp: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>`
 };
 
 const pageTitle = computed(() => {
   const titles = {
-    dashboard: 'Dashboard',
+    dashboard: 'Dashboard General',
     pm2: 'Procesos PM2',
-    hardware: 'Hardware & CPU',
-    screen: 'Pantalla ADB'
+    android: 'Procesos Android OS',
+    logs: 'Visor de Logs',
+    storage: 'Disco & Red',
+    screen: 'Control de Pantalla'
   };
   return titles[activeTab.value] || 'Dashboard';
 });
@@ -275,6 +335,13 @@ const filteredPm2 = computed(() => {
       String(p.pid).includes(q)
   );
 });
+
+async function selectTab(tab) {
+  activeTab.value = tab;
+  if (tab === 'android') {
+    await fetchAndroidProcesses();
+  }
+}
 
 async function fetchTelemetry() {
   try {
@@ -291,10 +358,50 @@ async function fetchTelemetry() {
     if (data.battery) Object.assign(telemetry.battery, data.battery);
     if (data.screen) Object.assign(telemetry.screen, data.screen);
     if (data.uptime) Object.assign(telemetry.uptime, data.uptime);
+    if (Array.isArray(data.storage)) telemetry.storage = data.storage;
+    if (data.network) telemetry.network = data.network;
     if (Array.isArray(data.pm2)) telemetry.pm2 = data.pm2;
     if (Array.isArray(data.history)) telemetry.history = data.history;
+
+    if (activeTab.value === 'android') {
+      fetchAndroidProcesses();
+    }
+  } catch (_) {}
+}
+
+async function fetchAndroidProcesses() {
+  try {
+    const res = await fetch('/api/android/processes');
+    if (res.status === 401) {
+      goToLogin();
+      return;
+    }
+    const data = await res.json();
+    if (data.summary) Object.assign(androidProc.summary, data.summary);
+    if (Array.isArray(data.processes)) androidProc.processes = data.processes;
+  } catch (_) {}
+}
+
+async function handlePm2Restart(name) {
+  if (!confirm(`¿Reiniciar proceso PM2 "${name}"?`)) return;
+  try {
+    const res = await fetch(`/api/pm2/restart/${name}`, { method: 'POST' });
+    const data = await res.json();
+    showToast(data.message || data.error || 'Acción enviada');
+    setTimeout(fetchTelemetry, 1200);
   } catch (_) {
-    // Mantiene última lectura si hay micro-corte de red
+    showToast('Error al reiniciar proceso');
+  }
+}
+
+async function handleUpdateServer() {
+  if (!confirm('¿Deseas descargar los últimos cambios de GitHub y reiniciar el panel?')) return;
+  try {
+    const res = await fetch('/api/system/update', { method: 'POST' });
+    const data = await res.json();
+    showToast(data.message || 'Actualización iniciada...');
+  } catch (_) {
+    showToast('Error al solicitar actualización');
   }
 }
 
@@ -377,9 +484,7 @@ onMounted(async () => {
       authState.value = 'login';
       return;
     }
-  } catch (_) {
-    // Si falla el estado, se intenta cargar igualmente; un 401 redirigirá al login
-  }
+  } catch (_) {}
   startDashboard();
 });
 

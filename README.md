@@ -106,12 +106,30 @@ En Windows puedes apuntar al ADB del teléfono definiendo `ADB_HOST_REMOTE=<IP-d
 | `GET` | `/api/auth/status` | — | `{ configured, authenticated }` |
 | `POST` | `/api/auth/login` | — | `{ password }` → cookie de sesión |
 | `POST` | `/api/auth/logout` | — | Cierra la sesión |
-| `GET` | `/api/telemetry` | ✅* | Paquete completo: servidor, CPU, RAM, batería, pantalla, uptime, PM2 e historial |
+| `GET` | `/api/telemetry` | ✅* | Paquete completo: servidor, CPU, RAM, batería, pantalla, disco, red, uptime, PM2 e historial |
 | `GET` | `/api/pm2` | ✅* | Lista de procesos PM2 |
+| `POST` | `/api/pm2/restart/:id` | ✅ | Reinicia un proceso PM2 |
+| `GET` | `/api/android/processes` | ✅* | Lista de procesos Android (top) y ZRAM/Swap |
+| `GET` | `/api/system/storage` | ✅* | Espacio en disco (/data y /sdcard) |
+| `GET` | `/api/system/network` | ✅* | Tráfico RX/TX, señal Wi-Fi y salud del túnel |
+| `GET` | `/api/logs/:target` | ✅* | Últimas 45 líneas de logs (backup, tunnel, pm2-notas, pm2-telemetry) |
+| `POST` | `/api/logs/:target/clear`| ✅ | Vacía el archivo de log seleccionado |
 | `POST` | `/api/screen/on` | ✅ | Enciende la pantalla |
 | `POST` | `/api/screen/off` | ✅ | Apaga la pantalla |
+| `POST` | `/api/system/update` | ✅ | Sincroniza desde GitHub y reinicia (actualizar.sh) |
 
-\* Si no hay contraseña configurada, se permite la lectura sin sesión. El control de pantalla siempre exige sesión.
+\* Si no hay contraseña configurada, se permite la lectura sin sesión. Las acciones de control siempre exigen sesión.
+
+## 🔄 Actualización automática (`scripts/actualizar.sh`)
+
+Puedes actualizar el servidor a la última versión en cualquier momento:
+
+- **Desde la web**: Botón "Actualizar (Git)" en el panel.
+- **Vía consola/SSH**:
+  ```bash
+  ./scripts/actualizar.sh
+  ```
+El script descarga los cambios de GitHub, instala nuevas dependencias si las hay, asegura los permisos y reinicia el servicio en PM2 sin perder tus configuraciones en `.env`.
 
 ## 📁 Estructura
 
@@ -126,10 +144,18 @@ En Windows puedes apuntar al ADB del teléfono definiendo `ADB_HOST_REMOTE=<IP-d
 │   ├── adb.js              # Puente ADB y control de pantalla
 │   ├── system.js           # CPU, RAM, uptime
 │   ├── battery.js          # Batería (sysfs / dumpsys)
-│   └── pm2.js              # pm2 jlist
+│   ├── pm2.js              # pm2 jlist
+│   ├── storage.js          # Espacio en disco eMMC
+│   ├── android-proc.js     # Procesos Android (top) y ZRAM
+│   ├── network.js          # Wi-Fi, tráfico y ping a localtunnel
+│   └── logs.js             # Lector y rotador de logs
 ├── scripts/
 │   ├── screen_control.sh   # Puente ADB (pantalla + dumpsys)
-│   └── set-password.js     # Define la contraseña de acceso
+│   ├── set-password.js     # Define la contraseña de acceso
+│   └── actualizar.sh       # Sincronización y reinicio automático
+├── public/                 # Frontend compilado (generado por Vite)
+└── frontend/               # Código fuente Vue 3 + Vite
+```
 ├── public/                 # Frontend compilado (generado por Vite)
 └── frontend/               # Código fuente Vue 3 + Vite
 ```
