@@ -4,3 +4,6 @@ frontend/node_modules/
 npm-debug.log*
 .DS_Store
 .env
+*.apk
+.gradle/
+**/build/
