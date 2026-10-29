@@ -29,9 +29,9 @@ jobs:
       - name: Compilar APK Debug para Moto E20
         run: |
           cd android-launcher
-          gradle wrapper
+          gradle wrapper --gradle-version 8.4
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Subir APK como artefacto de descarga
         uses: actions/upload-artifact@v4
