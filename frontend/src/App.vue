@@ -1,7 +1,20 @@
 <template>
   <LoginView v-if="authState === 'login'" @success="onLoginSuccess" />
 
-  <div v-else-if="authState === 'ready'" class="dashboard-shell" :class="{ 'launcher-mode': isLauncher }">
+  <!-- VISTA DEDICADA EXCLUSIVA PARA EL LAUNCHER (Teléfono / Petición Local) -->
+  <LauncherHomeView
+    v-else-if="authState === 'ready' && isLauncher"
+    :telemetry="telemetry"
+    :android-proc="androidProc"
+    :loading-screen="loadingScreen"
+    @refresh="fetchTelemetry"
+    @restart-pm2="handlePm2Restart"
+    @screen-action="handleScreenAction"
+    @notify="showToast"
+  />
+
+  <!-- VISTA DE ESCRITORIO PARA LA PC Y ACCESOS REMOTOS -->
+  <div v-else-if="authState === 'ready'" class="dashboard-shell">
     <!-- Navegación Lateral (PC) e Inferior (Móvil) -->
     <SidebarNav
       :active-tab="activeTab"
@@ -240,15 +253,20 @@ import StorageCard from './components/StorageCard.vue';
 import NetworkCard from './components/NetworkCard.vue';
 import AndroidProcTable from './components/AndroidProcTable.vue';
 import LogViewer from './components/LogViewer.vue';
+import LauncherHomeView from './components/LauncherHomeView.vue';
 
 const authState = ref('loading');
 const authConfigured = ref(true);
+const isLocalDevice = ref(false);
+const isLauncher = computed(() => {
+  if (typeof window === 'undefined') return false;
+  return isLocalDevice.value || window.location.search.includes('launcher=1');
+});
 const activeTab = ref('dashboard');
 const searchQuery = ref('');
 const refreshMs = ref(3000);
 const loadingScreen = ref(false);
 const toastMessage = ref('');
-const isLauncher = ref(typeof window !== 'undefined' && window.location.search.includes('launcher=1'));
 let pollTimer = null;
 
 const telemetry = reactive({
@@ -498,6 +516,7 @@ onMounted(async () => {
     const res = await fetch('/api/auth/status');
     const status = await res.json();
     authConfigured.value = status.configured;
+    isLocalDevice.value = Boolean(status.isLocal);
     if (status.configured && !status.authenticated) {
       authState.value = 'login';
       return;

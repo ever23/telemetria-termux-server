@@ -74,8 +74,8 @@ class MainActivity : AppCompatActivity() {
         settings.domStorageEnabled = true
         settings.databaseEnabled = true
         settings.cacheMode = WebSettings.LOAD_DEFAULT
-        settings.useWideViewPort = true
-        settings.loadWithOverviewMode = true
+        settings.useWideViewPort = false
+        settings.loadWithOverviewMode = false
 
         webView.setBackgroundColor(0xFF060A08.toInt())
 
