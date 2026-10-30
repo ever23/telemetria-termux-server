@@ -911,7 +911,7 @@ body {
 @media (max-width: 768px) {
   .dashboard-shell {
     grid-template-columns: 1fr;
-    padding-bottom: 76px;
+    padding-bottom: 74px;
   }
 
   .sidebar,
@@ -921,14 +921,14 @@ body {
   }
 
   .main-area {
-    padding: 16px 14px 28px;
-    gap: 14px;
+    padding: 12px 12px 28px;
+    gap: 12px;
   }
 
   .topbar {
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
+    gap: 8px;
   }
 
   .mobile-brand-bar {
@@ -941,27 +941,101 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     color: var(--text-muted);
     background: var(--bg-card);
-    padding: 5px 10px;
+    padding: 4px 8px;
     border-radius: 999px;
     border: 1px solid var(--border-subtle);
   }
 
+  /* Barra de puertos HTTP / QR horizontal en móvil sin apilarse */
+  .desktop-ports-bar {
+    width: 100%;
+    display: flex;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 2px 0 4px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .desktop-ports-bar::-webkit-scrollbar {
+    display: none;
+  }
+  .port-btn-chip {
+    flex-shrink: 0;
+    padding: 3px 8px;
+    font-size: 0.68rem;
+    gap: 4px;
+  }
+  .port-btn-chip .qr-badge {
+    font-size: 0.58rem;
+    padding: 1px 4px;
+  }
+
   .topbar-actions {
+    display: flex;
     justify-content: space-between;
+    align-items: center;
+    gap: 8px;
   }
 
   .mobile-page-title {
     display: block;
-    font-size: 1.35rem;
+    font-size: 1.15rem;
     font-weight: 700;
   }
 
+  .interval-selector select {
+    font-size: 0.72rem;
+    padding: 4px 6px;
+  }
+
+  /* Grid 2x2 para las tarjetas de KPI en móvil */
   .kpi-row {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .kpi-card {
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  .kpi-top {
+    gap: 4px;
+  }
+
+  .kpi-label {
+    font-size: 0.7rem;
+  }
+
+  .kpi-value {
+    font-size: 1.25rem;
+    margin: 2px 0;
+  }
+
+  .kpi-icon-box {
+    width: 28px;
+    height: 28px;
+  }
+  .kpi-icon-box svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .kpi-bottom {
+    font-size: 0.65rem;
+    gap: 4px;
+  }
+  .kpi-pill {
+    font-size: 0.58rem;
+    padding: 1px 5px;
+  }
+  .kpi-subtext {
+    font-size: 0.62rem;
   }
 
   /* En móvil el Donut muestra las métricas a la derecha igual que la referencia */
@@ -971,45 +1045,48 @@ body {
   }
 
   .donut-svg-box {
-    width: 130px;
-    height: 130px;
+    width: 120px;
+    height: 120px;
   }
 
   .donut-side-stats {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
 
   .side-stat-item {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: 6px;
   }
 
   .side-stat-label {
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     color: var(--text-muted);
   }
 
   .side-stat-val {
-    font-size: 1.05rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: var(--text-white);
   }
 
+  /* Barra de navegación inferior móvil: 6 columnas reales y 0 solapamiento */
   .mobile-bottom-nav {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 64px;
-    background: rgba(8, 13, 10, 0.96);
-    backdrop-filter: blur(12px);
+    height: 58px;
+    background: rgba(6, 12, 9, 0.96);
+    backdrop-filter: blur(16px);
     border-top: 1px solid var(--border-subtle);
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    z-index: 50;
+    grid-template-columns: repeat(6, 1fr);
+    align-items: center;
+    z-index: 100;
+    overflow: hidden;
   }
 
   .mobile-nav-btn {
@@ -1020,10 +1097,19 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    font-size: 0.72rem;
+    gap: 2px;
+    font-size: 0.62rem;
     font-weight: 500;
+    padding: 4px 1px;
     cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-nav-icon svg {
+    width: 18px;
+    height: 18px;
   }
 
   .mobile-nav-btn.active {
