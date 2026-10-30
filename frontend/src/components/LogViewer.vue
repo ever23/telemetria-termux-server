@@ -134,8 +134,9 @@
       @touchmove.passive="handleUserScroll"
     >
       <div v-if="filteredLines.length === 0" class="terminal-empty">
-        <span class="empty-comment"># Conectando con el stream de la terminal...</span>
-        <span v-if="filterQuery" class="empty-comment"># No hay líneas que coincidan con "{{ filterQuery }}"</span>
+        <span v-if="isLoadingLog" class="empty-comment"># Cargando registros de {{ currentLogName }}...</span>
+        <span v-else-if="!filterQuery" class="empty-comment"># Conectado a {{ currentLogName }} • Esperando nuevas líneas en tiempo real...</span>
+        <span v-else class="empty-comment"># No hay líneas que coincidan con "{{ filterQuery }}"</span>
       </div>
 
       <!-- Renderizado de Líneas con Coloreado Sintáctico -->
@@ -189,6 +190,7 @@ const connectionStatus = ref('connecting'); // connecting, connected, disconnect
 const isPaused = ref(false);
 const autoScroll = ref(true);
 const isFullscreen = ref(false);
+const isLoadingLog = ref(false);
 const filterQuery = ref('');
 const terminalScroll = ref(null);
 
@@ -229,6 +231,26 @@ const filteredLines = computed(() => {
   return lines.value.filter((l) => l.toLowerCase().includes(q));
 });
 
+// Carga inmediata del historial (los que haya) vía HTTP REST
+async function loadTargetHistory(targetId) {
+  if (!targetId) return;
+  isLoadingLog.value = true;
+  try {
+    const res = await fetch(`/api/logs/${encodeURIComponent(targetId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && typeof data.content === 'string') {
+        const splitted = data.content.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        lines.value = splitted;
+        scrollToBottomIfNeeded(true);
+      }
+    }
+  } catch (_) {
+  } finally {
+    isLoadingLog.value = false;
+  }
+}
+
 // Carga inmediata de fuentes mediante endpoint REST para no esperar al WebSocket
 async function fetchSourcesRest() {
   try {
@@ -239,6 +261,7 @@ async function fetchSourcesRest() {
         rawSources.value = data.sources;
         if (!selectedTarget.value || !data.sources.some((s) => s.id === selectedTarget.value)) {
           selectedTarget.value = data.sources[0].id;
+          loadTargetHistory(selectedTarget.value);
           if (socket && socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ action: 'watch', target: selectedTarget.value }));
           }
@@ -280,14 +303,20 @@ function connectWebSocket() {
             selectedTarget.value = msg.sources[0].id;
           }
           if (selectedTarget.value && (!hadTarget || selectedTarget.value === msg.sources[0]?.id)) {
+            loadTargetHistory(selectedTarget.value);
             if (socket && socket.readyState === WebSocket.OPEN) {
               socket.send(JSON.stringify({ action: 'watch', target: selectedTarget.value }));
             }
           }
         } else if (msg.type === 'history') {
-          lines.value = (msg.text || '').split('\n').filter((l) => l.length > 0);
-          scrollToBottomIfNeeded();
+          isLoadingLog.value = false;
+          const histLines = (msg.text || '').split(/\r?\n/).filter((l) => l.trim().length > 0);
+          if (histLines.length > 0) {
+            lines.value = histLines;
+            scrollToBottomIfNeeded(true);
+          }
         } else if (msg.type === 'line' && typeof msg.text === 'string') {
+          isLoadingLog.value = false;
           if (!isPaused.value) {
             lines.value.push(msg.text);
             if (lines.value.length > MAX_LINES_STORED) {
@@ -326,6 +355,7 @@ function scheduleReconnect() {
 
 function onTargetChange() {
   lines.value = [];
+  loadTargetHistory(selectedTarget.value);
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ action: 'watch', target: selectedTarget.value }));
   }
