@@ -28,18 +28,18 @@ jobs:
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Compilar APK Debug para Moto E20
+      - name: Compilar APK Release para Moto E20
         run: |
           cd android-launcher
           gradle wrapper --gradle-version 8.4
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --info --stacktrace
+          ./gradlew assembleRelease --no-daemon --info --stacktrace
 
       - name: Preparar binario con nombre de versión
         run: |
           VERSION="${{ github.ref_name }}"
           mkdir -p dist
-          cp android-launcher/app/build/outputs/apk/debug/app-debug.apk "dist/termux-telemetry-launcher-${VERSION}.apk"
+          cp android-launcher/app/build/outputs/apk/release/app-release.apk "dist/termux-telemetry-launcher-${VERSION}.apk"
 
       - name: Subir APK como artefacto de descarga
         uses: actions/upload-artifact@v4
