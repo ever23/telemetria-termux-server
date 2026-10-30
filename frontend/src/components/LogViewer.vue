@@ -231,15 +231,19 @@ const filteredLines = computed(() => {
   return lines.value.filter((l) => l.toLowerCase().includes(q));
 });
 
+let currentLoadReqId = 0;
+
 // Carga inmediata del historial (los que haya) vía HTTP REST
 async function loadTargetHistory(targetId) {
   if (!targetId) return;
+  const reqId = ++currentLoadReqId;
   isLoadingLog.value = true;
   try {
     const res = await fetch(`/api/logs/${encodeURIComponent(targetId)}`);
     if (res.ok) {
       const data = await res.json();
-      if (data && typeof data.content === 'string') {
+      // Validar que la respuesta corresponda a la petición más reciente y al target actual
+      if (reqId === currentLoadReqId && selectedTarget.value === targetId && data && typeof data.content === 'string') {
         const splitted = data.content.split(/\r?\n/).filter((l) => l.trim().length > 0);
         lines.value = splitted;
         scrollToBottomIfNeeded(true);
@@ -247,7 +251,9 @@ async function loadTargetHistory(targetId) {
     }
   } catch (_) {
   } finally {
-    isLoadingLog.value = false;
+    if (reqId === currentLoadReqId) {
+      isLoadingLog.value = false;
+    }
   }
 }
 
@@ -309,6 +315,8 @@ function connectWebSocket() {
             }
           }
         } else if (msg.type === 'history') {
+          // Descartar si el mensaje pertenece a otro log seleccionado previamente
+          if (msg.target && msg.target !== selectedTarget.value) return;
           isLoadingLog.value = false;
           const histLines = (msg.text || '').split(/\r?\n/).filter((l) => l.trim().length > 0);
           if (histLines.length > 0) {
@@ -316,6 +324,8 @@ function connectWebSocket() {
             scrollToBottomIfNeeded(true);
           }
         } else if (msg.type === 'line' && typeof msg.text === 'string') {
+          // Descartar si la línea en vivo pertenece a otro log
+          if (msg.target && msg.target !== selectedTarget.value) return;
           isLoadingLog.value = false;
           if (!isPaused.value) {
             lines.value.push(msg.text);
