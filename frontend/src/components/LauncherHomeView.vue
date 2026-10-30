@@ -5,8 +5,10 @@
       ref="pagesTrack"
       class="pages-track"
       @scroll.passive="handleTrackScroll"
+      @touchstart.passive="onTouchStart"
+      @touchend.passive="onTouchEnd"
     >
-      <!-- ================= PÁGINA 1: MONITOR PRINCIPAL ================= -->
+      <!-- ================= PÁGINA 1: MONITOR EN VIVO (KIOSK) ================= -->
       <section class="launcher-page page-kiosk">
         <!-- Header Superior -->
         <header class="page-header">
@@ -148,43 +150,189 @@
         </div>
 
         <div class="swipe-hint">
-          <span>Desliza a los lados para más paneles ➔</span>
+          <span>◀ Desliza a los lados para cambiar de página ▶</span>
         </div>
       </section>
 
-      <!-- ================= PÁGINA 2: PM2 COMPLETO & ANDROID OS ================= -->
-      <section class="launcher-page page-detail">
-        <div class="detail-header">
-          <h2>Procesos PM2 &amp; Android OS</h2>
-          <span class="muted">Panel 2 de 3</span>
+      <!-- ================= PÁGINA 2: SERVICIOS & PROCESOS (SIN SCROLL) ================= -->
+      <section class="launcher-page page-panel2">
+        <header class="page-header">
+          <div class="header-left">
+            <div class="brand-avatar">⚙</div>
+            <div class="brand-meta">
+              <div class="brand-title">
+                <strong>Servicios &amp; Procesos</strong>
+              </div>
+              <div class="brand-sub">
+                <span>PM2 &amp; Sistema Android • Panel 2 de 3</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <!-- Bloque 1: Servicios PM2 Completos -->
+        <div class="card-compact">
+          <div class="card-compact-header">
+            <span class="card-compact-title">Servicios Node.js (PM2)</span>
+            <span class="tag-count">{{ telemetry.pm2.length }} procesos</span>
+          </div>
+          <div class="pm2-card-list">
+            <div
+              v-for="proc in telemetry.pm2"
+              :key="proc.id + '-' + proc.name"
+              class="pm2-full-row"
+            >
+              <div class="proc-col-left">
+                <div class="proc-name-line">
+                  <span class="dot" :class="proc.status"></span>
+                  <strong class="proc-strong">{{ proc.name }}</strong>
+                </div>
+                <div class="proc-sub-line">
+                  <span>{{ proc.uptime || 'online' }}</span>
+                  <span v-if="proc.restarts > 0" class="restarts-sub">({{ proc.restarts }}↻)</span>
+                </div>
+              </div>
+
+              <div class="proc-col-right">
+                <div class="proc-metrics">
+                  <span class="mem-tag">{{ proc.memoryMb }} MB</span>
+                  <span class="cpu-tag">{{ proc.cpu }}% CPU</span>
+                </div>
+                <button
+                  class="btn-restart-large"
+                  title="Reiniciar servicio"
+                  @click="$emit('restart-pm2', proc.name)"
+                >
+                  ↻
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="detail-scroll">
-          <Pm2Table :processes="telemetry.pm2" @restart="$emit('restart-pm2', $event)" />
-          <AndroidProcTable
-            :processes="androidProc.processes"
-            :summary="androidProc.summary"
-          />
+        <!-- Bloque 2: Top Procesos del Sistema Android & Swap/ZRAM -->
+        <div class="card-compact">
+          <div class="card-compact-header">
+            <span class="card-compact-title">Top Procesos Android / Termux</span>
+            <span class="tag-zram">ZRAM: {{ androidProc.summary?.swapPercent || 0 }}%</span>
+          </div>
+
+          <!-- Barra de ZRAM / Swap -->
+          <div class="zram-bar-row">
+            <div class="zram-bar-track">
+              <div
+                class="zram-bar-fill"
+                :style="{ width: `${Math.min(100, androidProc.summary?.swapPercent || 0)}%` }"
+              ></div>
+            </div>
+            <div class="zram-labels">
+              <span>Swap Usado: {{ androidProc.summary?.swapUsedMb || 0 }} MB</span>
+              <span>Total: {{ androidProc.summary?.swapTotalMb || 0 }} MB</span>
+            </div>
+          </div>
+
+          <!-- Lista de los 4 procesos principales -->
+          <div class="android-proc-list">
+            <div
+              v-for="proc in topAndroidProcesses"
+              :key="proc.pid"
+              class="android-proc-row"
+            >
+              <div class="proc-info-cell">
+                <span class="pid-badge">#{{ proc.pid }}</span>
+                <span class="cmd-text">{{ proc.cmd.split('/').pop().slice(0, 22) }}</span>
+              </div>
+              <div class="proc-stat-cell">
+                <span class="res-mb">{{ proc.resMb }} MB</span>
+                <span class="cpu-pct" :class="{ warn: proc.cpu > 5 }">{{ proc.cpu }}%</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <!-- ================= PÁGINA 3: LOGS & CONTROL DE PANTALLA ================= -->
-      <section class="launcher-page page-detail">
-        <div class="detail-header">
-          <h2>Visor de Logs &amp; Hardware</h2>
-          <span class="muted">Panel 3 de 3</span>
+      <!-- ================= PÁGINA 3: MEMORIA & LOGS (SIN SCROLL, SIN BOTÓN DE APAGAR) ================= -->
+      <section class="launcher-page page-panel3">
+        <header class="page-header">
+          <div class="header-left">
+            <div class="brand-avatar">📊</div>
+            <div class="brand-meta">
+              <div class="brand-title">
+                <strong>Memoria &amp; Logs</strong>
+              </div>
+              <div class="brand-sub">
+                <span>Diagnóstico del Servidor • Panel 3 de 3</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <!-- Bloque 1: Anillo Donut de RAM & Hardware (SIN control de pantalla) -->
+        <div class="card-compact">
+          <div class="donut-compact-wrap">
+            <!-- Anillo SVG -->
+            <div class="donut-svg-cell">
+              <svg viewBox="0 0 100 100" class="donut-svg-sm">
+                <circle cx="50" cy="50" r="36" fill="none" stroke="#0B3B24" stroke-width="14" />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="36"
+                  fill="none"
+                  stroke="#00E676"
+                  stroke-width="14"
+                  :stroke-dasharray="`${donutUsedDash} ${donutCircumference}`"
+                  stroke-dashoffset="0"
+                  transform="rotate(-90 50 50)"
+                />
+                <text x="50" y="54" text-anchor="middle" class="donut-text-sm">
+                  {{ telemetry.ram.percent }}%
+                </text>
+              </svg>
+            </div>
+
+            <!-- Leyenda y Métricas -->
+            <div class="donut-info-cell">
+              <div class="donut-legend-row">
+                <span class="legend-dot used"></span>
+                <span>En uso: <strong>{{ telemetry.ram.usedMb }} MB</strong></span>
+              </div>
+              <div class="donut-legend-row">
+                <span class="legend-dot free"></span>
+                <span>Libre: <strong>{{ telemetry.ram.availableMb || telemetry.ram.freeMb }} MB</strong></span>
+              </div>
+              <div class="donut-legend-row">
+                <span class="legend-dot cache"></span>
+                <span>Caché: <strong>{{ telemetry.ram.cachedPercent || 0 }}%</strong></span>
+              </div>
+              <div class="donut-legend-row">
+                <span class="legend-dot temp"></span>
+                <span>Batería: <strong>{{ telemetry.battery.temperature }}°C • {{ telemetry.battery.level }}%</strong></span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="detail-scroll">
-          <DonutCard
-            :ram="telemetry.ram"
-            :screen-state="telemetry.screen.state"
-            :screen-label="telemetry.screen.label"
-            :loading="loadingScreen"
-            @screen-on="$emit('screen-action', 'on')"
-            @screen-off="$emit('screen-action', 'off')"
-          />
-          <LogViewer @notify="$emit('notify', $event)" />
+        <!-- Bloque 2: Terminal de Logs en Vivo -->
+        <div class="card-compact logs-card-compact">
+          <div class="card-compact-header">
+            <span class="card-compact-title">Visor de Logs (Últimas líneas)</span>
+            <div class="logs-header-actions">
+              <select v-model="selectedLogTarget" class="logs-select" @change="fetchLog">
+                <option value="backup">backup.log</option>
+                <option value="tunnel">vigilante_tunel.log</option>
+                <option value="pm2-notas">PM2 notas</option>
+                <option value="pm2-telemetry">PM2 telemetry</option>
+              </select>
+              <button class="btn-refresh-log" :disabled="loadingLogs" @click="fetchLog">
+                {{ loadingLogs ? '...' : '↻' }}
+              </button>
+            </div>
+          </div>
+
+          <div ref="terminalBox" class="terminal-body-compact">
+            <pre><code>{{ logContent || 'Sin registros recientes...' }}</code></pre>
+          </div>
         </div>
       </section>
     </div>
@@ -194,20 +342,20 @@
       <span
         v-for="i in 3"
         :key="i"
-        class="dot-indicator"
-        :class="{ active: currentPage === (i - 1) }"
+        class="dot-indicator-hitbox"
         @click="scrollToPage(i - 1)"
-      ></span>
+      >
+        <span
+          class="dot-indicator"
+          :class="{ active: currentPage === (i - 1) }"
+        ></span>
+      </span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import Pm2Table from './Pm2Table.vue';
-import AndroidProcTable from './AndroidProcTable.vue';
-import LogViewer from './LogViewer.vue';
-import DonutCard from './DonutCard.vue';
+import { ref, computed, onMounted } from 'vue';
 
 const props = defineProps({
   telemetry: {
@@ -224,11 +372,73 @@ const props = defineProps({
   }
 });
 
-defineEmits(['restart-pm2', 'screen-action', 'notify']);
+defineEmits(['restart-pm2', 'notify']);
 
 const pagesTrack = ref(null);
 const currentPage = ref(0);
 const chartMetric = ref('cpu');
+
+// Top 4 procesos de Android para que no desborde la pantalla
+const topAndroidProcesses = computed(() => {
+  const list = props.androidProc?.processes || [];
+  return list.slice(0, 4);
+});
+
+// Logs en vivo para el Panel 3
+const selectedLogTarget = ref('pm2-telemetry');
+const logContent = ref('');
+const loadingLogs = ref(false);
+const terminalBox = ref(null);
+
+async function fetchLog() {
+  loadingLogs.value = true;
+  try {
+    const res = await fetch(`/api/logs/${selectedLogTarget.value}`);
+    const data = await res.json();
+    logContent.value = data.content || 'Sin registros recientes';
+    setTimeout(() => {
+      if (terminalBox.value) terminalBox.value.scrollTop = terminalBox.value.scrollHeight;
+    }, 50);
+  } catch (_) {
+    logContent.value = 'Error al consultar logs';
+  } finally {
+    loadingLogs.value = false;
+  }
+}
+
+onMounted(() => {
+  fetchLog();
+});
+
+// Gesto táctil ultra sensible (Swipe de 35px cambia de pantalla al instante)
+let touchStartX = 0;
+let touchStartY = 0;
+let touchStartTime = 0;
+
+function onTouchStart(e) {
+  if (!e.touches || e.touches.length === 0) return;
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  touchStartTime = Date.now();
+}
+
+function onTouchEnd(e) {
+  if (!e.changedTouches || e.changedTouches.length === 0) return;
+  const deltaX = e.changedTouches[0].clientX - touchStartX;
+  const deltaY = e.changedTouches[0].clientY - touchStartY;
+  const deltaTime = Date.now() - touchStartTime;
+
+  // Si el movimiento fue predominantemente horizontal
+  if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 35) {
+    if (deltaX < 0 && currentPage.value < 2) {
+      // Swipe hacia la izquierda -> avanzar página
+      scrollToPage(currentPage.value + 1);
+    } else if (deltaX > 0 && currentPage.value > 0) {
+      // Swipe hacia la derecha -> retroceder página
+      scrollToPage(currentPage.value - 1);
+    }
+  }
+}
 
 function handleTrackScroll(e) {
   const el = e.target;
@@ -248,6 +458,13 @@ function scrollToPage(index) {
   });
   currentPage.value = index;
 }
+
+// Donut SVG Math
+const donutCircumference = 2 * Math.PI * 36; // ~226.2
+const donutUsedDash = computed(() => {
+  const pct = Math.max(5, Math.min(95, props.telemetry.ram?.percent || 60));
+  return +((pct / 100) * donutCircumference).toFixed(1);
+});
 
 // Mini Gráfica SVG en tiempo real (320x80)
 const chartLinePath = computed(() => {
@@ -295,7 +512,7 @@ const chartAreaPath = computed(() => {
   user-select: none;
 }
 
-/* Pista Horizontal Deslizable con Snap a 60 FPS */
+/* Pista Horizontal Deslizable con Snap */
 .pages-track {
   display: flex;
   width: 100%;
@@ -313,7 +530,7 @@ const chartAreaPath = computed(() => {
   display: none;
 }
 
-/* Cada Página Ocupa el 100% de la Pantalla */
+/* Cada Página Ocupa el 100% de la Pantalla sin desbordar verticalmente */
 .launcher-page {
   min-width: 100vw;
   max-width: 100vw;
@@ -322,16 +539,12 @@ const chartAreaPath = computed(() => {
   scroll-snap-align: start;
   scroll-snap-stop: always;
   box-sizing: border-box;
-  padding: 8px 10px 88px; /* 88px libres para dots e icono de apps */
+  padding: 8px 10px 84px; /* 84px libres para dots e icono de apps */
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 7px;
   overflow: hidden;
-}
-
-/* Página 1 (Kiosk): Sin ningún scroll, todo cabe en la altura */
-.page-kiosk {
-  gap: 6px;
 }
 
 /* Header */
@@ -421,7 +634,7 @@ const chartAreaPath = computed(() => {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 68px;
+  min-height: 66px;
 }
 .tile-top {
   display: flex;
@@ -448,7 +661,7 @@ const chartAreaPath = computed(() => {
   color: #f87171;
 }
 .tile-val {
-  font-size: 1.18rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #ffffff;
   margin: 1px 0;
@@ -457,7 +670,7 @@ const chartAreaPath = computed(() => {
 .tile-rates {
   display: flex;
   gap: 6px;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 700;
   margin: 1px 0;
 }
@@ -532,7 +745,7 @@ const chartAreaPath = computed(() => {
 }
 .chart-svg-wrap {
   width: 100%;
-  height: 65px;
+  height: 60px;
 }
 .chart-svg {
   width: 100%;
@@ -627,57 +840,327 @@ const chartAreaPath = computed(() => {
 
 .swipe-hint {
   text-align: center;
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   color: #4a5e52;
-  padding: 2px 0;
+  padding: 1px 0;
 }
 
-/* Páginas de Detalle (2 y 3) */
-.page-detail {
-  justify-content: flex-start;
-  gap: 8px;
+/* ================= COMPACT CARDS PARA PÁGINAS 2 Y 3 ================= */
+.card-compact {
+  background: #09120e;
+  border: 1px solid #162e22;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
 }
-.detail-header {
+.card-compact-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 0;
 }
-.detail-header h2 {
-  font-size: 0.88rem;
-  margin: 0;
-  color: #ffffff;
+.card-compact-title {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #f0fdf4;
 }
-.detail-scroll {
-  flex: 1;
-  overflow-y: auto;
+.tag-count, .tag-zram {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #00e676;
+  background: rgba(0, 230, 118, 0.12);
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+/* PM2 List en Panel 2 */
+.pm2-card-list {
   display: flex;
   flex-direction: column;
+  gap: 5px;
+}
+.pm2-full-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #060a08;
+  border: 1px solid #11241a;
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+.proc-col-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.proc-name-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.proc-name-line .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f87171;
+}
+.proc-name-line .dot.online {
+  background: #00e676;
+  box-shadow: 0 0 5px #00e676;
+}
+.proc-strong {
+  font-size: 0.76rem;
+  color: #ffffff;
+}
+.proc-sub-line {
+  font-size: 0.62rem;
+  color: #677b70;
+}
+.restarts-sub {
+  color: #eab308;
+  margin-left: 3px;
+}
+.proc-col-right {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  padding-bottom: 20px;
+}
+.proc-metrics {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+.mem-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #00e676;
+}
+.cpu-tag {
+  font-size: 0.62rem;
+  color: #8b9d93;
+}
+.btn-restart-large {
+  background: #0d1a13;
+  border: 1px solid #162e22;
+  color: #00e676;
+  font-size: 0.82rem;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-weight: bold;
+}
+
+/* ZRAM & Android Procs en Panel 2 */
+.zram-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 2px 0 4px;
+}
+.zram-bar-track {
+  width: 100%;
+  height: 6px;
+  background: #11241a;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.zram-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00e676, #38bdf8);
+  border-radius: 999px;
+}
+.zram-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.6rem;
+  color: #8b9d93;
+}
+.android-proc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.android-proc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #060a08;
+  border: 1px solid #102117;
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+.proc-info-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pid-badge {
+  font-size: 0.58rem;
+  color: #677b70;
+  background: #09120e;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+.cmd-text {
+  font-size: 0.68rem;
+  color: #ffffff;
+  font-family: monospace;
+}
+.proc-stat-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.res-mb {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #00e676;
+}
+.cpu-pct {
+  font-size: 0.62rem;
+  color: #8b9d93;
+}
+.cpu-pct.warn {
+  color: #f87171;
+  font-weight: bold;
+}
+
+/* Panel 3: Donut Compacto & Logs */
+.donut-compact-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+.donut-svg-cell {
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+}
+.donut-svg-sm {
+  width: 100%;
+  height: 100%;
+}
+.donut-text-sm {
+  fill: #ffffff;
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-family: inherit;
+}
+.donut-info-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.donut-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.66rem;
+  color: #8b9d93;
+}
+.donut-legend-row strong {
+  color: #f0fdf4;
+}
+.legend-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.legend-dot.used { background: #00e676; box-shadow: 0 0 4px #00e676; }
+.legend-dot.free { background: #0b3b24; }
+.legend-dot.cache { background: #009e52; }
+.legend-dot.temp { background: #38bdf8; }
+
+/* Logs Terminal Compacto en Panel 3 */
+.logs-card-compact {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+}
+.logs-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.logs-select {
+  background: #060a08;
+  border: 1px solid #162e22;
+  border-radius: 6px;
+  color: #f0fdf4;
+  font-size: 0.62rem;
+  padding: 2px 4px;
+  outline: none;
+}
+.btn-refresh-log {
+  background: #0d1a13;
+  border: 1px solid #162e22;
+  color: #00e676;
+  font-size: 0.7rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-weight: bold;
+}
+.terminal-body-compact {
+  background: #040806;
+  border: 1px solid #0f2418;
+  border-radius: 6px;
+  padding: 6px;
+  height: 120px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: #86efac;
   scrollbar-width: thin;
+}
+.terminal-body-compact pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 /* Indicadores de Paginación Estilo Launcher (● ○ ○) */
 .launcher-dots {
   position: absolute;
-  bottom: 60px; /* Arriba del boton nativo de aplicaciones */
+  bottom: 58px; /* Arriba del boton nativo de aplicaciones */
   left: 0;
   right: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   pointer-events: auto;
   z-index: 10;
+}
+.dot-indicator-hitbox {
+  padding: 10px 8px; /* Área táctil generosa para tocar con el pulgar */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .dot-indicator {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: #1a3325;
-  transition: all 0.25s ease;
-  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: block;
 }
 .dot-indicator.active {
   width: 18px;
