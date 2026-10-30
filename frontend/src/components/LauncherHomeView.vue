@@ -45,7 +45,7 @@
               @click="openQr(svc)"
             >
               <span class="chip-dot"></span>
-              <span class="chip-title">{{ svc.isTunnel ? 'Túnel ☁️' : `:${svc.port} ${svc.name}` }}</span>
+              <span class="chip-title">{{ svc.isTunnel ? (svc.name.includes('Notas') ? '☁️ Notas' : svc.name.includes('Telemetría') ? '☁️ Telemetría' : `☁️ ${svc.name}`) : `:${svc.port} ${svc.name}` }}</span>
               <span class="chip-qr-icon">📷 QR</span>
             </button>
           </div>
