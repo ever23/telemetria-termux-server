@@ -61,8 +61,8 @@
             @click="openQr(svc)"
           >
             <span class="chip-dot"></span>
-            <span>{{ svc.isTunnel ? (svc.name.includes('Notas') ? '☁️ Notas' : svc.name.includes('Telemetría') ? '☁️ Telemetría' : `☁️ ${svc.name}`) : `:${svc.port} ${svc.name}` }}</span>
-            <span class="qr-badge">QR 📷</span>
+            <span>{{ formatServiceName(svc) }}</span>
+            <span class="qr-badge">QR</span>
           </button>
         </div>
 
@@ -364,14 +364,25 @@ const icons = {
   temp: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>`
 };
 
+function formatServiceName(svc) {
+  if (svc.isTunnel) {
+    if (svc.name && svc.name.includes('Notas')) return '☁️ Notas';
+    if (svc.name && svc.name.includes('Telemetría')) return '☁️ Telemetría';
+    return `☁️ ${(svc.name || 'Túnel').replace(' (Cloudflare)', '')}`;
+  }
+  if (svc.port === 3050) return ':3050 Notas';
+  if (svc.port === 3055) return ':3055 Telemetría';
+  return `:${svc.port} ${(svc.name || '').replace('Control de ', '').replace(' Dashboard', '')}`;
+}
+
 const pageTitle = computed(() => {
   const titles = {
-    dashboard: 'Dashboard General',
+    dashboard: 'Dashboard',
     pm2: 'Procesos PM2',
-    android: 'Procesos Android OS',
+    android: 'Android OS',
     logs: 'Visor de Logs',
     storage: 'Disco & Red',
-    screen: 'Control de Pantalla'
+    screen: 'Control Pantalla'
   };
   return titles[activeTab.value] || 'Dashboard';
 });
