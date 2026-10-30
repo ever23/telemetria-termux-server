@@ -46,23 +46,26 @@
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Buscar proceso PM2, puerto o métrica..."
+            placeholder="Buscar procesos PM2..."
           />
         </div>
 
         <!-- Acceso Rápido a Servicios HTTP y Código QR (PC) -->
-        <div v-if="telemetry.httpServices && telemetry.httpServices.length" class="desktop-ports-bar">
+        <div
+          v-if="telemetry.httpServices && telemetry.httpServices.length"
+          class="desktop-ports-bar"
+          @wheel.passive="handlePortsWheel"
+        >
           <button
             v-for="svc in telemetry.httpServices"
             :key="svc.port + svc.url"
             class="port-btn-chip"
             :class="{ 'tunnel-chip': svc.isTunnel }"
-            title="Ver Código QR para acceder desde móvil o tablet"
+            :title="`Abrir / Ver QR para ${svc.name}`"
             @click="openQr(svc)"
           >
             <span class="chip-dot"></span>
             <span>{{ formatServiceName(svc) }}</span>
-            <span class="qr-badge">QR</span>
           </button>
         </div>
 
@@ -373,6 +376,12 @@ function formatServiceName(svc) {
   if (svc.port === 3050) return ':3050 Notas';
   if (svc.port === 3055) return ':3055 Telemetría';
   return `:${svc.port} ${(svc.name || '').replace('Control de ', '').replace(' Dashboard', '')}`;
+}
+
+function handlePortsWheel(e) {
+  if (e.deltaY !== 0) {
+    e.currentTarget.scrollLeft += e.deltaY;
+  }
 }
 
 const pageTitle = computed(() => {

@@ -211,14 +211,14 @@ body {
 .search-box {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: #0c130f;
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
-  padding: 8px 16px;
+  padding: 7px 14px;
   width: 100%;
-  max-width: 280px;
-  flex: 0 1 280px;
+  max-width: 210px;
+  flex: 0 1 210px;
   color: var(--text-muted);
 }
 
@@ -227,7 +227,7 @@ body {
   border: none;
   outline: none;
   color: var(--text-white);
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   width: 100%;
 }
 
@@ -238,11 +238,13 @@ body {
 .desktop-ports-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .desktop-ports-bar::-webkit-scrollbar {
@@ -252,16 +254,16 @@ body {
 .port-btn-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   background: #09150e;
   border: 1px solid var(--border-emerald);
   color: var(--text-white);
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   font-weight: 600;
-  padding: 5px 10px;
+  padding: 4px 9px;
   border-radius: 999px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.18s;
   flex-shrink: 0;
   white-space: nowrap;
 }
