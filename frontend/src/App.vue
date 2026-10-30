@@ -50,6 +50,22 @@
           />
         </div>
 
+        <!-- Acceso Rápido a Servicios HTTP y Código QR (PC) -->
+        <div v-if="telemetry.httpServices && telemetry.httpServices.length" class="desktop-ports-bar">
+          <button
+            v-for="svc in telemetry.httpServices"
+            :key="svc.port + svc.url"
+            class="port-btn-chip"
+            :class="{ 'tunnel-chip': svc.isTunnel }"
+            title="Ver Código QR para acceder desde móvil o tablet"
+            @click="openQr(svc)"
+          >
+            <span class="chip-dot"></span>
+            <span>{{ svc.isTunnel ? 'Túnel ☁️' : `:${svc.port} ${svc.name}` }}</span>
+            <span class="qr-badge">QR 📷</span>
+          </button>
+        </div>
+
         <div class="topbar-actions">
           <h1 class="mobile-page-title">{{ pageTitle }}</h1>
 
@@ -238,6 +254,13 @@
       </div>
     </main>
   </div>
+
+  <!-- Modal Código QR Global (Escritorio / PC) -->
+  <QrModal
+    v-model="showQrModal"
+    :service="selectedQrService"
+    @notify="showToast"
+  />
 </template>
 
 <script setup>
@@ -254,6 +277,7 @@ import NetworkCard from './components/NetworkCard.vue';
 import AndroidProcTable from './components/AndroidProcTable.vue';
 import LogViewer from './components/LogViewer.vue';
 import LauncherHomeView from './components/LauncherHomeView.vue';
+import QrModal from './components/QrModal.vue';
 
 const authState = ref('loading');
 const authConfigured = ref(true);
@@ -267,7 +291,14 @@ const searchQuery = ref('');
 const refreshMs = ref(3000);
 const loadingScreen = ref(false);
 const toastMessage = ref('');
+const showQrModal = ref(false);
+const selectedQrService = ref(null);
 let pollTimer = null;
+
+function openQr(svc) {
+  selectedQrService.value = svc;
+  showQrModal.value = true;
+}
 
 const telemetry = reactive({
   server: {
@@ -316,6 +347,7 @@ const telemetry = reactive({
     selfMemoryMb: 0
   },
   pm2: [],
+  httpServices: [],
   history: []
 });
 

@@ -226,6 +226,60 @@ body {
   color: var(--text-dim);
 }
 
+.desktop-ports-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.port-btn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #09150e;
+  border: 1px solid var(--border-emerald);
+  color: var(--text-white);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.port-btn-chip:hover {
+  background: var(--surface-hover);
+  border-color: var(--neon-green);
+  transform: translateY(-1px);
+}
+
+.port-btn-chip .chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--neon-green);
+  box-shadow: 0 0 5px var(--neon-green);
+}
+
+.port-btn-chip.tunnel-chip {
+  border-color: #0284c7;
+}
+
+.port-btn-chip.tunnel-chip .chip-dot {
+  background: #38bdf8;
+  box-shadow: 0 0 5px #38bdf8;
+}
+
+.qr-badge {
+  font-size: 0.65rem;
+  background: rgba(0, 230, 118, 0.15);
+  color: var(--neon-green);
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
 .topbar-actions {
   display: flex;
   align-items: center;

@@ -33,6 +33,24 @@
           </div>
         </header>
 
+        <!-- Barra de Puertos HTTP con Acceso por Código QR -->
+        <div v-if="telemetry.httpServices && telemetry.httpServices.length" class="ports-qr-bar">
+          <span class="ports-qr-label">HTTP:</span>
+          <div class="ports-chips-wrap">
+            <button
+              v-for="svc in telemetry.httpServices"
+              :key="svc.port + svc.url"
+              class="port-chip-btn"
+              :class="{ 'tunnel-chip': svc.isTunnel }"
+              @click="openQr(svc)"
+            >
+              <span class="chip-dot"></span>
+              <span class="chip-title">{{ svc.isTunnel ? 'Túnel ☁️' : `:${svc.port} ${svc.name}` }}</span>
+              <span class="chip-qr-icon">📷 QR</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Grid 2x2 Ultra-Comprimido -->
         <div class="grid-2x2">
           <!-- CPU -->
@@ -351,11 +369,27 @@
         ></span>
       </span>
     </div>
+
+    <!-- Modal Código QR para Acceso a Servicios HTTP -->
+    <QrModal
+      v-model="showQrModal"
+      :service="selectedQrService"
+      @notify="$emit('notify', $event)"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import QrModal from './QrModal.vue';
+
+const showQrModal = ref(false);
+const selectedQrService = ref(null);
+
+function openQr(svc) {
+  selectedQrService.value = svc;
+  showQrModal.value = true;
+}
 
 const props = defineProps({
   telemetry: {
@@ -617,6 +651,81 @@ const chartAreaPath = computed(() => {
   padding: 2px 6px;
   border-radius: 999px;
   border: 1px solid rgba(0, 230, 118, 0.25);
+}
+
+/* Barra de Puertos y Códigos QR */
+.ports-qr-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #09120e;
+  border: 1px solid #162e22;
+  border-radius: 8px;
+  padding: 3px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+.ports-qr-bar::-webkit-scrollbar {
+  display: none;
+}
+.ports-qr-label {
+  font-size: 0.58rem;
+  font-weight: 800;
+  color: #00e676;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.ports-chips-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ports-chips-wrap::-webkit-scrollbar {
+  display: none;
+}
+.port-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #050c08;
+  border: 1px solid #143524;
+  color: #ffffff;
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.port-chip-btn:hover, .port-chip-btn:active {
+  border-color: #00e676;
+  background: #0b2216;
+}
+.port-chip-btn .chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #00e676;
+  box-shadow: 0 0 4px #00e676;
+}
+.port-chip-btn.tunnel-chip {
+  border-color: #0284c7;
+}
+.port-chip-btn.tunnel-chip .chip-dot {
+  background: #38bdf8;
+  box-shadow: 0 0 4px #38bdf8;
+}
+.chip-qr-icon {
+  font-size: 0.58rem;
+  color: #00e676;
+  background: rgba(0, 230, 118, 0.15);
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-weight: 700;
 }
 
 /* Grid 2x2 */

@@ -11,6 +11,7 @@ const { getStorageMetrics } = require('./lib/storage');
 const { getAndroidProcesses } = require('./lib/android-proc');
 const { getNetworkTelemetry } = require('./lib/network');
 const { getLogLines, clearLog } = require('./lib/logs');
+const { getHttpServices } = require('./lib/ports');
 const auth = require('./lib/auth');
 
 const app = express();
@@ -81,7 +82,8 @@ async function buildTelemetryPayload() {
     getUptimeMetrics(),
     getPm2Processes(),
     getStorageMetrics(),
-    getNetworkTelemetry(hostInfo.tunnelUrl)
+    getNetworkTelemetry(hostInfo.tunnelUrl),
+    getHttpServices(pm2, hostInfo)
   ]);
 
   const screenState = (adbData && adbData.screen) || getManualScreenState() || 'OFF';
@@ -101,6 +103,7 @@ async function buildTelemetryPayload() {
     network,
     uptime,
     pm2,
+    httpServices: httpServices || [],
     history
   };
 }
@@ -153,6 +156,20 @@ app.get(['/api/telemetry', '/api/status'], auth.requireAuthIfConfigured, async (
   try {
     const payload = await buildTelemetryPayload();
     res.json(payload);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Puertos y Servicios HTTP
+// ---------------------------------------------------------------------------
+app.get('/api/ports', auth.requireAuthIfConfigured, async (_req, res) => {
+  try {
+    const hostInfo = await discoverHostInfo();
+    const pm2 = await getPm2Processes();
+    const services = await getHttpServices(pm2, hostInfo);
+    res.json({ ok: true, ip: hostInfo.ip, services });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
