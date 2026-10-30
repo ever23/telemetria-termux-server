@@ -269,88 +269,30 @@
         </div>
       </section>
 
-      <!-- ================= PÁGINA 3: MEMORIA & LOGS (SIN SCROLL, SIN BOTÓN DE APAGAR) ================= -->
+      <!-- ================= PÁGINA 3: TERMINAL & LOGS EN VIVO ================= -->
       <section class="launcher-page page-panel3">
         <header class="page-header">
           <div class="header-left">
-            <div class="brand-avatar">📊</div>
+            <div class="brand-avatar">⚡</div>
             <div class="brand-meta">
               <div class="brand-title">
-                <strong>Memoria &amp; Logs</strong>
+                <strong>Terminal &amp; Logs en Vivo</strong>
+                <span class="tag-live">STREAMING</span>
               </div>
               <div class="brand-sub">
-                <span>Diagnóstico del Servidor • Panel 3 de 3</span>
+                <span class="pulse-dot"></span>
+                <span>PM2 &amp; Sistema • RAM: {{ telemetry.ram.usedGb }} GB ({{ telemetry.ram.freePercent }}% libre)</span>
               </div>
             </div>
           </div>
         </header>
 
-        <!-- Bloque 1: Anillo Donut de RAM & Hardware (SIN control de pantalla) -->
-        <div class="card-compact">
-          <div class="donut-compact-wrap">
-            <!-- Anillo SVG -->
-            <div class="donut-svg-cell">
-              <svg viewBox="0 0 100 100" class="donut-svg-sm">
-                <circle cx="50" cy="50" r="36" fill="none" stroke="#0B3B24" stroke-width="14" />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="36"
-                  fill="none"
-                  stroke="#00E676"
-                  stroke-width="14"
-                  :stroke-dasharray="`${donutUsedDash} ${donutCircumference}`"
-                  stroke-dashoffset="0"
-                  transform="rotate(-90 50 50)"
-                />
-                <text x="50" y="54" text-anchor="middle" class="donut-text-sm">
-                  {{ telemetry.ram.percent }}%
-                </text>
-              </svg>
-            </div>
-
-            <!-- Leyenda y Métricas -->
-            <div class="donut-info-cell">
-              <div class="donut-legend-row">
-                <span class="legend-dot used"></span>
-                <span>En uso: <strong>{{ telemetry.ram.usedMb }} MB</strong></span>
-              </div>
-              <div class="donut-legend-row">
-                <span class="legend-dot free"></span>
-                <span>Libre: <strong>{{ telemetry.ram.availableMb || telemetry.ram.freeMb }} MB</strong></span>
-              </div>
-              <div class="donut-legend-row">
-                <span class="legend-dot cache"></span>
-                <span>Caché: <strong>{{ telemetry.ram.cachedPercent || 0 }}%</strong></span>
-              </div>
-              <div class="donut-legend-row">
-                <span class="legend-dot temp"></span>
-                <span>Batería: <strong>{{ telemetry.battery.temperature }}°C • {{ telemetry.battery.level }}%</strong></span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Bloque 2: Terminal de Logs en Vivo -->
-        <div class="card-compact logs-card-compact">
-          <div class="card-compact-header">
-            <span class="card-compact-title">Visor de Logs (Últimas líneas)</span>
-            <div class="logs-header-actions">
-              <select v-model="selectedLogTarget" class="logs-select" @change="fetchLog">
-                <option value="backup">backup.log</option>
-                <option value="tunnel">vigilante_tunel.log</option>
-                <option value="pm2-notas">PM2 notas</option>
-                <option value="pm2-telemetry">PM2 telemetry</option>
-              </select>
-              <button class="btn-refresh-log" :disabled="loadingLogs" @click="fetchLog">
-                {{ loadingLogs ? '...' : '↻' }}
-              </button>
-            </div>
-          </div>
-
-          <div ref="terminalBox" class="terminal-body-compact">
-            <pre><code>{{ logContent || 'Sin registros recientes...' }}</code></pre>
-          </div>
+        <!-- Terminal de Logs Integrada en Vivo -->
+        <div class="launcher-logviewer-container">
+          <LogViewer
+            :server-name="telemetry.server?.deviceName || 'motoe20'"
+            @notify="$emit('notify', $event)"
+          />
         </div>
       </section>
     </div>
@@ -380,8 +322,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import QrModal from './QrModal.vue';
+import LogViewer from './LogViewer.vue';
 
 const showQrModal = ref(false);
 const selectedQrService = ref(null);
@@ -416,32 +359,6 @@ const chartMetric = ref('cpu');
 const topAndroidProcesses = computed(() => {
   const list = props.androidProc?.processes || [];
   return list.slice(0, 4);
-});
-
-// Logs en vivo para el Panel 3
-const selectedLogTarget = ref('pm2-telemetry');
-const logContent = ref('');
-const loadingLogs = ref(false);
-const terminalBox = ref(null);
-
-async function fetchLog() {
-  loadingLogs.value = true;
-  try {
-    const res = await fetch(`/api/logs/${selectedLogTarget.value}`);
-    const data = await res.json();
-    logContent.value = data.content || 'Sin registros recientes';
-    setTimeout(() => {
-      if (terminalBox.value) terminalBox.value.scrollTop = terminalBox.value.scrollHeight;
-    }, 50);
-  } catch (_) {
-    logContent.value = 'Error al consultar logs';
-  } finally {
-    loadingLogs.value = false;
-  }
-}
-
-onMounted(() => {
-  fetchLog();
 });
 
 // Gesto táctil ultra sensible (Swipe de 35px cambia de pantalla al instante)
@@ -1140,107 +1057,61 @@ const chartAreaPath = computed(() => {
   font-weight: bold;
 }
 
-/* Panel 3: Donut Compacto & Logs */
-.donut-compact-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 0;
-}
-.donut-svg-cell {
-  width: 80px;
-  height: 80px;
-  flex-shrink: 0;
-}
-.donut-svg-sm {
-  width: 100%;
-  height: 100%;
-}
-.donut-text-sm {
-  fill: #ffffff;
-  font-size: 1.15rem;
-  font-weight: 800;
-  font-family: inherit;
-}
-.donut-info-cell {
+/* Panel 3: Terminal de Logs en Vivo Adaptada al Launcher */
+.launcher-logviewer-container {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  flex: 1;
-}
-.donut-legend-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.66rem;
-  color: #8b9d93;
-}
-.donut-legend-row strong {
-  color: #f0fdf4;
-}
-.legend-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.legend-dot.used { background: #00e676; box-shadow: 0 0 4px #00e676; }
-.legend-dot.free { background: #0b3b24; }
-.legend-dot.cache { background: #009e52; }
-.legend-dot.temp { background: #38bdf8; }
-
-/* Logs Terminal Compacto en Panel 3 */
-.logs-card-compact {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
   overflow: hidden;
+  margin-bottom: 24px;
 }
-.logs-header-actions {
-  display: flex;
-  align-items: center;
+
+.launcher-logviewer-container :deep(.terminal-window) {
+  height: 100% !important;
+  min-height: 0 !important;
+  border-radius: 12px;
+  background: #030805;
+  border: 1px solid #102619;
+}
+
+.launcher-logviewer-container :deep(.terminal-titlebar) {
+  padding: 8px 10px;
+}
+
+.launcher-logviewer-container :deep(.terminal-toolbar) {
+  padding: 6px 8px;
   gap: 6px;
 }
-.logs-select {
-  background: #060a08;
-  border: 1px solid #162e22;
-  border-radius: 6px;
-  color: #f0fdf4;
-  font-size: 0.62rem;
-  padding: 2px 4px;
-  outline: none;
+
+.launcher-logviewer-container :deep(.source-select) {
+  max-width: 140px;
+  font-size: 0.68rem;
+  padding: 4px 6px;
 }
-.btn-refresh-log {
-  background: #0d1a13;
-  border: 1px solid #162e22;
-  color: #00e676;
+
+.launcher-logviewer-container :deep(.terminal-search-input) {
+  width: 90px;
+  font-size: 0.68rem;
+}
+
+.launcher-logviewer-container :deep(.tool-btn) {
+  padding: 3px 6px;
+  font-size: 0.65rem;
+}
+
+.launcher-logviewer-container :deep(.terminal-screen) {
+  flex: 1;
+  min-height: 120px;
+  max-height: none;
   font-size: 0.7rem;
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  font-weight: bold;
+  line-height: 1.4;
+  padding: 8px 10px;
 }
-.terminal-body-compact {
-  background: #040806;
-  border: 1px solid #0f2418;
-  border-radius: 6px;
-  padding: 6px;
-  height: 120px;
-  overflow-y: auto;
-  font-family: monospace;
-  font-size: 0.62rem;
-  line-height: 1.35;
-  color: #86efac;
-  scrollbar-width: thin;
-}
-.terminal-body-compact pre {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-all;
+
+.launcher-logviewer-container :deep(.terminal-footer) {
+  padding: 4px 8px;
+  font-size: 0.65rem;
 }
 
 /* Indicadores de Paginación Estilo Launcher (● ○ ○) */
