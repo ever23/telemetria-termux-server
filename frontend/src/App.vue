@@ -568,6 +568,12 @@ async function logout() {
 }
 
 onMounted(async () => {
+  // Si estamos en el launcher del teléfono, omitir login y arrancar dashboard de inmediato
+  if (isLauncher.value) {
+    startDashboard();
+    return;
+  }
+
   try {
     const res = await fetch('/api/auth/status');
     const status = await res.json();

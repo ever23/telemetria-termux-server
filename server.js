@@ -129,7 +129,11 @@ async function buildTelemetryPayload() {
 // Autenticación
 // ---------------------------------------------------------------------------
 app.get('/api/auth/status', (req, res) => {
-  res.json({ configured: auth.isConfigured(), authenticated: auth.isAuthenticated(req) });
+  res.json({
+    configured: auth.isConfigured(),
+    authenticated: auth.isAuthenticated(req),
+    isLocal: auth.isLocalRequest(req)
+  });
 });
 
 app.post('/api/auth/login', async (req, res) => {
