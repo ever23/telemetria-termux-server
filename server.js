@@ -75,20 +75,28 @@ async function buildTelemetryPayload() {
     fetchAdbTelemetry()
   ]);
 
-  const [cpu, ram, battery, uptime, pm2, storage, network] = await Promise.all([
+  const [cpu, ram, battery, uptime, pm2, storage] = await Promise.all([
     getCpuMetrics(adbData, hostInfo.socName),
     getRamMetrics(),
     getBatteryMetrics(adbData),
     getUptimeMetrics(),
     getPm2Processes(),
-    getStorageMetrics(),
-    getNetworkTelemetry(hostInfo.tunnelUrl)
+    getStorageMetrics()
   ]);
 
   let httpServices = [];
   try {
     httpServices = await getHttpServices(pm2, hostInfo);
   } catch (_) {}
+
+  // Extraer los túneles descubiertos y pinguear su estado
+  const cfTunnels = httpServices.filter((s) => s.isTunnel);
+  const network = await getNetworkTelemetry(hostInfo.tunnelUrl, cfTunnels);
+
+  // Si hostInfo.tunnelUrl no estaba configurado, asociar el primer túnel descubierto
+  if ((!hostInfo.tunnelUrl || hostInfo.tunnelUrl === 'N/A') && network.tunnel?.url) {
+    hostInfo.tunnelUrl = network.tunnel.url;
+  }
 
   const screenState = (adbData && adbData.screen) || getManualScreenState() || 'OFF';
   pushHistoryPoint(cpu.usage, ram.percent, battery.temperature);
@@ -206,7 +214,22 @@ app.get('/api/system/storage', auth.requireAuthIfConfigured, async (_req, res) =
 app.get('/api/system/network', auth.requireAuthIfConfigured, async (_req, res) => {
   try {
     const hostInfo = await discoverHostInfo();
-    const network = await getNetworkTelemetry(hostInfo.tunnelUrl);
+    const { discoverCloudflareTunnels } = require('./lib/ports');
+    const cfTunnels = await discoverCloudflareTunnels();
+    const network = await getNetworkTelemetry(hostInfo.tunnelUrl, cfTunnels);
+    res.json({ ok: true, network });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post('/api/network/ping', auth.requireAuthIfConfigured, async (_req, res) => {
+  try {
+    const hostInfo = await discoverHostInfo();
+    const { discoverCloudflareTunnels } = require('./lib/ports');
+    const cfTunnels = await discoverCloudflareTunnels();
+    // Forzar chequeo fresco
+    const network = await getNetworkTelemetry(hostInfo.tunnelUrl, cfTunnels);
     res.json({ ok: true, network });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });

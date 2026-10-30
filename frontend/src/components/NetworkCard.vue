@@ -8,9 +8,9 @@
       <div class="header-right">
         <span
           class="kpi-pill"
-          :class="network.tunnel?.online ? 'positive' : 'danger'"
+          :class="isAnyTunnelOnline ? 'positive' : 'danger'"
         >
-          {{ network.tunnel?.online ? 'Túnel Activo' : (network.tunnel?.configured ? 'Túnel Caído' : 'Sin Configurar') }}
+          {{ tunnelStatusLabel }}
         </span>
       </div>
     </div>
@@ -49,33 +49,65 @@
         </div>
       </div>
 
-      <!-- Túnel Web Salud -->
+      <!-- Túneles Web y Ping de Salud -->
       <div class="net-box tunnel-box">
         <div class="net-box-title">
           <div class="tunnel-title-row">
-            <span>Túnel</span>
-            <button class="edit-btn" title="Configurar URL del túnel" @click="startEdit">
-              ⚙️ Configurar
+            <span>Túneles Cloudflare</span>
+            <button
+              class="ping-action-btn"
+              title="Hacer ping ahora a todos los túneles"
+              :disabled="pinging"
+              @click="triggerManualPing"
+            >
+              {{ pinging ? '⚡ Probando...' : '⚡ Ping' }}
+            </button>
+            <button class="edit-btn" title="Configurar URL manual" @click="startEdit">
+              ⚙️
             </button>
           </div>
-          <span class="status-code">{{ network.tunnel?.statusCode ? `HTTP ${network.tunnel.statusCode}` : 'Ping' }}</span>
+          <span class="status-code">
+            {{ activeTunnels.length ? `${activeTunnels.filter(t => t.online).length}/${activeTunnels.length} OK` : 'Ping' }}
+          </span>
         </div>
 
         <div v-if="!isEditing" class="tunnel-display">
-          <div class="latency-val">
-            {{ network.tunnel?.latencyMs || 0 }} ms
-          </div>
-          <div class="tunnel-link-row">
-            <small class="muted-text">{{ network.tunnel?.note || 'Sin configurar' }}</small>
-            <a
-              v-if="network.tunnel?.url"
-              :href="`https://${network.tunnel.url}`"
-              target="_blank"
-              class="ext-link"
-              title="Abrir túnel en pestaña nueva"
+          <!-- Lista de Túneles Detectados con Ping en Tiempo Real -->
+          <div v-if="activeTunnels.length" class="tunnel-ping-list">
+            <div
+              v-for="tun in activeTunnels"
+              :key="tun.url"
+              class="tunnel-ping-row"
             >
-              {{ network.tunnel.url }} ↗
-            </a>
+              <div class="tun-info">
+                <span class="tun-dot" :class="{ online: tun.online }"></span>
+                <span class="tun-name" :title="tun.url">{{ formatTunnelName(tun) }}</span>
+                <a :href="tun.url.startsWith('http') ? tun.url : `https://${tun.url}`" target="_blank" rel="noopener" class="tun-link" title="Abrir enlace">↗</a>
+              </div>
+              <div class="tun-metrics">
+                <span class="tun-latency" :class="{ online: tun.online }">{{ tun.latencyMs }} ms</span>
+                <span class="tun-code" :class="{ online: tun.online }">{{ tun.statusCode ? `${tun.statusCode}` : (tun.online ? 'OK' : 'ERR') }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fallback si no hay túneles de Cloudflare -->
+          <div v-else>
+            <div class="latency-val">
+              {{ network.tunnel?.latencyMs || 0 }} ms
+            </div>
+            <div class="tunnel-link-row">
+              <small class="muted-text">{{ network.tunnel?.note || 'Sin configurar' }}</small>
+              <a
+                v-if="network.tunnel?.url"
+                :href="`https://${network.tunnel.url}`"
+                target="_blank"
+                class="ext-link"
+                title="Abrir túnel en pestaña nueva"
+              >
+                {{ network.tunnel.url }} ↗
+              </a>
+            </div>
           </div>
         </div>
 
@@ -100,7 +132,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 const props = defineProps({
   network: {
@@ -114,6 +146,59 @@ const emit = defineEmits(['save-tunnel']);
 const isEditing = ref(false);
 const inputUrl = ref('');
 const saving = ref(false);
+const pinging = ref(false);
+
+const activeTunnels = computed(() => {
+  if (Array.isArray(props.network.tunnels) && props.network.tunnels.length > 0) {
+    return props.network.tunnels;
+  }
+  if (props.network.tunnel?.url) {
+    return [props.network.tunnel];
+  }
+  return [];
+});
+
+const isAnyTunnelOnline = computed(() => {
+  if (activeTunnels.value.length > 0) {
+    return activeTunnels.value.some((t) => t.online);
+  }
+  return Boolean(props.network.tunnel?.online);
+});
+
+const tunnelStatusLabel = computed(() => {
+  if (activeTunnels.value.length > 0) {
+    const onlineCount = activeTunnels.value.filter((t) => t.online).length;
+    return `Túneles Activos (${onlineCount}/${activeTunnels.value.length})`;
+  }
+  return props.network.tunnel?.online ? 'Túnel Activo' : (props.network.tunnel?.configured ? 'Túnel Caído' : 'Sin Configurar');
+});
+
+function formatTunnelName(tun) {
+  if (tun.name) {
+    return tun.name.replace(' (Cloudflare)', '');
+  }
+  const url = tun.url || '';
+  if (url.includes('telemetry')) return 'Telemetría';
+  if (url.includes('notas')) return 'Notas';
+  return url.replace(/^https?:\/\//, '').split('.')[0];
+}
+
+async function triggerManualPing() {
+  if (pinging.value) return;
+  pinging.value = true;
+  try {
+    const res = await fetch('/api/network/ping', { method: 'POST' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.network) {
+        Object.assign(props.network, data.network);
+      }
+    }
+  } catch (_) {}
+  finally {
+    pinging.value = false;
+  }
+}
 
 function startEdit() {
   inputUrl.value = props.network.tunnel?.url || '';
@@ -167,6 +252,25 @@ function save() {
   align-items: center;
   gap: 8px;
 }
+.ping-action-btn {
+  background: rgba(0, 230, 118, 0.12);
+  border: 1px solid rgba(0, 230, 118, 0.3);
+  color: var(--neon-green);
+  font-size: 0.70rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 7px;
+  border-radius: 999px;
+  transition: all 0.15s ease;
+}
+.ping-action-btn:hover {
+  background: var(--neon-green);
+  color: #04140b;
+}
+.ping-action-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
 .edit-btn {
   background: transparent;
   border: none;
@@ -178,6 +282,84 @@ function save() {
 }
 .edit-btn:hover {
   background: rgba(0, 230, 118, 0.1);
+}
+
+.tunnel-ping-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.tunnel-ping-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+.tun-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+.tun-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--danger);
+  flex-shrink: 0;
+}
+.tun-dot.online {
+  background: var(--neon-green);
+  box-shadow: 0 0 6px var(--neon-green);
+}
+.tun-name {
+  font-size: 0.80rem;
+  font-weight: 600;
+  color: var(--text-white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tun-link {
+  color: var(--neon-green);
+  text-decoration: none;
+  font-size: 0.72rem;
+  opacity: 0.8;
+}
+.tun-link:hover {
+  opacity: 1;
+}
+.tun-metrics {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.tun-latency {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.tun-latency.online {
+  color: var(--neon-green);
+}
+.tun-code {
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  font-weight: 600;
+}
+.tun-code.online {
+  background: rgba(0, 230, 118, 0.12);
+  color: var(--neon-green);
 }
 .quality-tag {
   color: var(--neon-green);
