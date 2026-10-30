@@ -1,3 +1,4 @@
+const http = require('http');
 const express = require('express');
 const path = require('path');
 const { exec } = require('child_process');
@@ -10,13 +11,17 @@ const { getPm2Processes } = require('./lib/pm2');
 const { getStorageMetrics } = require('./lib/storage');
 const { getAndroidProcesses } = require('./lib/android-proc');
 const { getNetworkTelemetry } = require('./lib/network');
-const { getLogLines, clearLog } = require('./lib/logs');
+const { listAvailableLogs, getLogLines, clearLog, setupLogsWebSocket } = require('./lib/logs');
 const { getHttpServices } = require('./lib/ports');
 const auth = require('./lib/auth');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = config.port || 3055;
 const MAX_POINTS = config.historyMaxPoints || 20;
+
+// Inicializar WebSocket para streaming de terminal en vivo
+setupLogsWebSocket(server);
 
 app.disable('x-powered-by');
 app.set('trust proxy', 'loopback');
@@ -247,6 +252,15 @@ app.post('/api/system/tunnel', auth.requireAuthStrict, (req, res) => {
 // ---------------------------------------------------------------------------
 // Visor y Rotación de Logs
 // ---------------------------------------------------------------------------
+app.get('/api/logs/sources', auth.requireAuthIfConfigured, async (_req, res) => {
+  try {
+    const sources = await listAvailableLogs();
+    res.json({ ok: true, sources });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 app.get('/api/logs/:target', auth.requireAuthIfConfigured, async (req, res) => {
   try {
     const target = req.params.target;
@@ -337,7 +351,7 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
   const rss = (process.memoryUsage().rss / 1024 / 1024).toFixed(1);
   console.log(`[Termux Telemetry] Servidor activo en http://0.0.0.0:${PORT} (RAM inicial: ${rss} MB)`);
   if (!auth.isConfigured()) {

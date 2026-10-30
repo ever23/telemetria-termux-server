@@ -199,7 +199,7 @@
 
           <!-- Vista 4: Visor de Logs -->
           <template v-else-if="activeTab === 'logs'">
-            <LogViewer @notify="showToast" />
+            <LogViewer :server-name="telemetry.server?.deviceName" @notify="showToast" />
           </template>
 
           <!-- Vista 5: Disco y Red -->
