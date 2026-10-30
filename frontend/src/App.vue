@@ -136,7 +136,7 @@
       </transition>
 
       <!-- Contenido Principal en Grid Estilo Inbyte -->
-      <div class="content-grid">
+      <div class="content-grid" :class="{ 'full-layout': activeTab === 'logs' || activeTab === 'pm2' || activeTab === 'android' }">
         <!-- Columna Central / Izquierda -->
         <section class="center-column">
           <!-- Vista 1: Dashboard Principal -->

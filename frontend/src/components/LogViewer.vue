@@ -1,11 +1,11 @@
 <template>
-  <div class="terminal-window">
+  <div class="terminal-window" :class="{ 'is-fullscreen': isFullscreen }">
     <!-- Barra Superior de la Terminal (Estilo macOS / Linux) -->
     <div class="terminal-titlebar">
       <div class="window-buttons">
-        <span class="win-btn close" title="Cerrar"></span>
-        <span class="win-btn minimize" title="Minimizar"></span>
-        <span class="win-btn zoom" title="Maximizar"></span>
+        <span class="win-btn close" title="Cerrar" @click="clearScreen"></span>
+        <span class="win-btn minimize" title="Pausar / Reanudar" @click="togglePause"></span>
+        <span class="win-btn zoom" :title="isFullscreen ? 'Restaurar tamaño' : 'Maximizar a pantalla completa'" @click="toggleFullscreen"></span>
       </div>
 
       <div class="terminal-title">
@@ -15,6 +15,13 @@
       </div>
 
       <div class="terminal-status-wrap">
+        <button
+          class="fullscreen-toggle-btn"
+          :title="isFullscreen ? 'Salir de pantalla completa (Esc)' : 'Expandir a pantalla completa'"
+          @click="toggleFullscreen"
+        >
+          {{ isFullscreen ? '🗗 Restaurar' : '🗖 Pantalla Completa' }}
+        </button>
         <span class="live-pill" :class="connectionStatus">
           <span class="pulse-indicator"></span>
           <span>{{ statusLabel }}</span>
@@ -181,12 +188,17 @@ const lines = ref([]);
 const connectionStatus = ref('connecting'); // connecting, connected, disconnected
 const isPaused = ref(false);
 const autoScroll = ref(true);
+const isFullscreen = ref(false);
 const filterQuery = ref('');
 const terminalScroll = ref(null);
 
 let socket = null;
 let reconnectTimer = null;
 const MAX_LINES_STORED = 800; // límite en memoria para cuidar la RAM del teléfono
+
+function toggleFullscreen() {
+  isFullscreen.value = !isFullscreen.value;
+}
 
 const statusLabel = computed(() => {
   if (connectionStatus.value === 'connected') return isPaused.value ? 'PAUSADO' : 'EN VIVO';
@@ -217,6 +229,25 @@ const filteredLines = computed(() => {
   return lines.value.filter((l) => l.toLowerCase().includes(q));
 });
 
+// Carga inmediata de fuentes mediante endpoint REST para no esperar al WebSocket
+async function fetchSourcesRest() {
+  try {
+    const res = await fetch('/api/logs/sources');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.sources) && data.sources.length > 0) {
+        rawSources.value = data.sources;
+        if (!selectedTarget.value || !data.sources.some((s) => s.id === selectedTarget.value)) {
+          selectedTarget.value = data.sources[0].id;
+          if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ action: 'watch', target: selectedTarget.value }));
+          }
+        }
+      }
+    }
+  } catch (_) {}
+}
+
 function connectWebSocket() {
   if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
     return;
@@ -233,6 +264,8 @@ function connectWebSocket() {
       connectionStatus.value = 'connected';
       if (selectedTarget.value) {
         socket.send(JSON.stringify({ action: 'watch', target: selectedTarget.value }));
+      } else {
+        socket.send(JSON.stringify({ action: 'list' }));
       }
     };
 
@@ -242,8 +275,14 @@ function connectWebSocket() {
 
         if (msg.type === 'sources' && Array.isArray(msg.sources)) {
           rawSources.value = msg.sources;
-          if (!selectedTarget.value && msg.sources.length > 0) {
+          const hadTarget = Boolean(selectedTarget.value);
+          if ((!selectedTarget.value || !msg.sources.some((s) => s.id === selectedTarget.value)) && msg.sources.length > 0) {
             selectedTarget.value = msg.sources[0].id;
+          }
+          if (selectedTarget.value && (!hadTarget || selectedTarget.value === msg.sources[0]?.id)) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+              socket.send(JSON.stringify({ action: 'watch', target: selectedTarget.value }));
+            }
           }
         } else if (msg.type === 'history') {
           lines.value = (msg.text || '').split('\n').filter((l) => l.length > 0);
@@ -293,6 +332,7 @@ function onTargetChange() {
 }
 
 function refreshSourcesList() {
+  fetchSourcesRest();
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ action: 'list' }));
   }
@@ -397,6 +437,7 @@ function highlightLogLine(raw) {
 }
 
 onMounted(() => {
+  fetchSourcesRest();
   connectWebSocket();
 });
 
@@ -419,8 +460,24 @@ onUnmounted(() => {
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
-  min-height: 520px;
+  height: calc(100vh - 160px);
+  min-height: 560px;
+  width: 100%;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  transition: all 0.2s ease;
+}
+
+.terminal-window.is-fullscreen {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  height: calc(100vh - 20px) !important;
+  max-height: none !important;
+  z-index: 9999;
+  border-color: var(--neon-green);
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.9);
 }
 
 /* Barra de Título */
@@ -622,13 +679,29 @@ onUnmounted(() => {
   padding: 4px 6px;
 }
 
+.fullscreen-toggle-btn {
+  background: rgba(0, 230, 118, 0.08);
+  border: 1px solid rgba(0, 230, 118, 0.25);
+  color: var(--neon-green);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.fullscreen-toggle-btn:hover {
+  background: var(--neon-green);
+  color: #04140b;
+}
+
 /* Pantalla de Terminal */
 .terminal-screen {
   padding: 12px 14px;
   background: #030805;
   overflow-y: auto;
-  max-height: 480px;
-  min-height: 380px;
+  flex: 1;
+  min-height: 250px;
   display: flex;
   flex-direction: column;
   gap: 2px;

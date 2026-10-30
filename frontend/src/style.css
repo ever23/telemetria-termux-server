@@ -392,6 +392,10 @@ body {
   align-items: start;
 }
 
+.content-grid.full-layout {
+  grid-template-columns: 1fr;
+}
+
 .center-column {
   display: flex;
   flex-direction: column;
