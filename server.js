@@ -82,9 +82,13 @@ async function buildTelemetryPayload() {
     getUptimeMetrics(),
     getPm2Processes(),
     getStorageMetrics(),
-    getNetworkTelemetry(hostInfo.tunnelUrl),
-    getHttpServices(pm2, hostInfo)
+    getNetworkTelemetry(hostInfo.tunnelUrl)
   ]);
+
+  let httpServices = [];
+  try {
+    httpServices = await getHttpServices(pm2, hostInfo);
+  } catch (_) {}
 
   const screenState = (adbData && adbData.screen) || getManualScreenState() || 'OFF';
   pushHistoryPoint(cpu.usage, ram.percent, battery.temperature);
