@@ -412,6 +412,7 @@ async function fetchTelemetry() {
     if (Array.isArray(data.storage)) telemetry.storage = data.storage;
     if (data.network) telemetry.network = data.network;
     if (Array.isArray(data.pm2)) telemetry.pm2 = data.pm2;
+    if (Array.isArray(data.httpServices)) telemetry.httpServices = data.httpServices;
     if (Array.isArray(data.history)) telemetry.history = data.history;
 
     if (activeTab.value === 'android') {
